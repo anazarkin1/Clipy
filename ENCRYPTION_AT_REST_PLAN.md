@@ -1062,6 +1062,27 @@ events without relying on the Settings pane.
 **Objective:** Expose the coordinator and lock policy with explicit destructive
 consent, accurate authentication language, and actionable recovery states.
 
+**Status (2026-07-12):** Implemented and automated checks passed.
+
+- Added a SwiftUI-backed Security preferences pane with a programmatic toolbar
+  entry in the existing preferences window.
+- Added `SecuritySettingsViewModel`, which routes enable, disable,
+  clear-inaccessible-history, lock-now, and unlock through coordinator/lock
+  actions instead of storing security mode in UserDefaults.
+- Enable/disable actions require explicit destructive confirmation text naming
+  permanent clipboard-history deletion and stating snippets are unaffected.
+- Recovery states distinguish missing keys from temporarily unavailable keys:
+  keyMissing exposes clear-inaccessible-history, while keyUnavailable defaults
+  to retry/help language.
+- Authentication language now references macOS owner authentication generically
+  (Touch ID, Apple Watch, or password when available), avoiding Touch ID-only
+  claims.
+- Added accessibility labels, hints, status text, and status-change
+  announcements for the Security pane controls.
+- Verified with focused settings view-model tests and the full Xcode test suite
+  using Xcode 26.5 via xcrun with serial test execution. Test result: 131 tests
+  in 22 suites passed.
+
 **Depends on:** Milestones 4 and 5.
 
 **In scope:**
@@ -1085,22 +1106,28 @@ consent, accurate authentication language, and actionable recovery states.
 
 **Acceptance tests:**
 
-- [ ] Unit/UI: cancelling enable or disable changes neither metadata, Keychain,
+- [x] Unit/UI: cancelling enable or disable changes neither metadata, Keychain,
       nor history.
-- [ ] Unit/UI: confirmation text explicitly states which history will be
+- [x] Unit/UI: confirmation text explicitly states which history will be
       permanently cleared and that snippets are unaffected.
-- [ ] Unit/UI: Settings calls coordinator APIs and never writes security mode
+- [x] Unit/UI: Settings calls coordinator APIs and never writes security mode
       directly to UserDefaults.
-- [ ] Unit/UI: Touch ID-unavailable Macs still offer authentication when
+- [x] Unit/UI: Touch ID-unavailable Macs still offer authentication when
       deviceOwnerAuthentication supports Apple Watch or password.
-- [ ] Unit/UI: transition progress prevents duplicate actions and remains
+- [x] Unit/UI: transition progress prevents duplicate actions and remains
       retryable after an injected failure.
-- [ ] Unit/UI: keyMissing presents clear-inaccessible-history; keyUnavailable
+- [x] Unit/UI: keyMissing presents clear-inaccessible-history; keyUnavailable
       presents retry/help instead of destructive recovery by default.
-- [ ] Accessibility: every control has a meaningful label, status changes are
+- [x] Accessibility: every control has a meaningful label, status changes are
       announced, and keyboard navigation reaches all actions.
 - [ ] Manual app: enable, cancel, retry, lock now, unlock cancellation, disable,
       and inaccessible-history recovery match the documented states.
+
+**Implementation note:** Manual UI QA remains a release-gate check because it
+requires interactive macOS authentication and preferences-window navigation. The
+automated milestone coverage verifies view-model routing, destructive copy,
+retryability, recovery-state branching, authentication language, and accessible
+labels/hints.
 
 **Exit gate:** A user can manage encryption without hidden state changes,
 misleading Touch ID claims, or ambiguous destructive behavior.

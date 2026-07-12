@@ -33,6 +33,7 @@ final class CPYPreferencesWindowController: NSWindowController {
     @IBOutlet private weak var shortcutsTextField: NSTextField!
     @IBOutlet private weak var updatesTextField: NSTextField!
     @IBOutlet private weak var betaTextField: NSTextField!
+    private weak var securityTextField: NSTextField?
     // Buttons
     @IBOutlet private weak var generalButton: NSButton!
     @IBOutlet private weak var menuButton: NSButton!
@@ -41,6 +42,7 @@ final class CPYPreferencesWindowController: NSWindowController {
     @IBOutlet private weak var shortcutsButton: NSButton!
     @IBOutlet private weak var updatesButton: NSButton!
     @IBOutlet private weak var betaButton: NSButton!
+    private weak var securityButton: NSButton?
     // ViewController
     private let viewController = [NSViewController(nibName: "CPYGeneralPreferenceViewController", bundle: nil),
                                   NSViewController(nibName: "CPYMenuPreferenceViewController", bundle: nil),
@@ -48,7 +50,8 @@ final class CPYPreferencesWindowController: NSWindowController {
                                   CPYExcludeAppPreferenceViewController(nibName: "CPYExcludeAppPreferenceViewController", bundle: nil),
                                   CPYShortcutsPreferenceViewController(nibName: "CPYShortcutsPreferenceViewController", bundle: nil),
                                   CPYUpdatesPreferenceViewController(nibName: "CPYUpdatesPreferenceViewController", bundle: nil),
-                                  CPYBetaPreferenceViewController(nibName: "CPYBetaPreferenceViewController", bundle: nil)]
+                                  CPYBetaPreferenceViewController(nibName: "CPYBetaPreferenceViewController", bundle: nil),
+                                  SecurityPreferenceHostingController()]
 
     // MARK: - Window Life Cycle
     override func windowDidLoad() {
@@ -57,6 +60,7 @@ final class CPYPreferencesWindowController: NSWindowController {
         self.window?.appearance = NSAppearance(named: .aqua)
         self.window?.backgroundColor = NSColor(white: 0.99, alpha: 1)
         self.window?.titlebarAppearsTransparent = true
+        addSecurityToolbarItem()
         toolBarItemTapped(generalButton)
         generalButton.sendAction(on: .leftMouseDown)
         menuButton.sendAction(on: .leftMouseDown)
@@ -65,6 +69,7 @@ final class CPYPreferencesWindowController: NSWindowController {
         shortcutsButton.sendAction(on: .leftMouseDown)
         updatesButton.sendAction(on: .leftMouseDown)
         betaButton.sendAction(on: .leftMouseDown)
+        securityButton?.sendAction(on: .leftMouseDown)
     }
 
     override func showWindow(_ sender: Any?) {
@@ -109,6 +114,7 @@ private extension CPYPreferencesWindowController {
         shortcutsTextField.textColor = NSColor(resource: .tabTitle)
         updatesTextField.textColor = NSColor(resource: .tabTitle)
         betaTextField.textColor = NSColor(resource: .tabTitle)
+        securityTextField?.textColor = NSColor(resource: .tabTitle)
     }
 
     func selectedTab(_ index: Int) {
@@ -136,8 +142,36 @@ private extension CPYPreferencesWindowController {
         case 6:
             betaImageView.image = NSImage(resource: .prefBetaOn)
             betaTextField.textColor = NSColor(resource: .clipy)
+        case 7:
+            securityTextField?.textColor = NSColor(resource: .clipy)
         default: break
         }
+    }
+
+    func addSecurityToolbarItem() {
+        let container = NSView(frame: NSRect(x: 350, y: 0, width: 70, height: 56))
+        container.translatesAutoresizingMaskIntoConstraints = true
+        container.autoresizingMask = [.maxXMargin]
+
+        let label = NSTextField(labelWithString: String(localized: "Security"))
+        label.frame = NSRect(x: 3, y: 8, width: 64, height: 12)
+        label.alignment = .center
+        label.font = NSFont(name: "HiraKakuProN-W6", size: 9) ?? NSFont.systemFont(ofSize: 9, weight: .semibold)
+        label.textColor = NSColor(resource: .tabTitle)
+
+        let button = NSButton(frame: container.bounds)
+        button.isBordered = false
+        button.tag = 7
+        button.target = self
+        button.action = #selector(toolBarItemTapped(_:))
+        button.setButtonType(.momentaryChange)
+        button.setAccessibilityLabel(String(localized: "Security Preferences"))
+
+        container.addSubview(label)
+        container.addSubview(button)
+        toolBar.addSubview(container)
+        securityTextField = label
+        securityButton = button
     }
 
     func switchView(_ index: Int) {

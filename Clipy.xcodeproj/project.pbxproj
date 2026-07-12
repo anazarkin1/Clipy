@@ -70,6 +70,10 @@
 		C5E004092FFFF20900E00009 /* LockManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5E004082FFFF20800E00008 /* LockManager.swift */; };
 		C5E004072FFFF20700E00007 /* HistorySecurityCoordinatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5E004062FFFF20600E00006 /* HistorySecurityCoordinatorTests.swift */; };
 		C5E0040B2FFFF20B00E0000B /* LockManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5E0040A2FFFF20A00E0000A /* LockManagerTests.swift */; };
+		C5E005012FFFF30100E00001 /* SecuritySettingsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5E005002FFFF30000E00000 /* SecuritySettingsViewModel.swift */; };
+		C5E005032FFFF30300E00003 /* SecurityPreferenceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5E005022FFFF30200E00002 /* SecurityPreferenceView.swift */; };
+		C5E005052FFFF30500E00005 /* SecurityPreferenceHostingController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5E005042FFFF30400E00004 /* SecurityPreferenceHostingController.swift */; };
+		C5E005072FFFF30700E00007 /* SecuritySettingsViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5E005062FFFF30600E00006 /* SecuritySettingsViewModelTests.swift */; };
 		C5E003142FFFF11400E00014 /* EncryptionKeyStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5E003042FFFF10400E00004 /* EncryptionKeyStoreTests.swift */; };
 		C5E003152FFFF11500E00015 /* HistoryKeyCheckTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5E003052FFFF10500E00005 /* HistoryKeyCheckTests.swift */; };
 		C5E003162FFFF11600E00016 /* HistorySecurityBootstrapTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5E003062FFFF10600E00006 /* HistorySecurityBootstrapTests.swift */; };
@@ -249,6 +253,10 @@
 		C5E004082FFFF20800E00008 /* LockManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LockManager.swift; sourceTree = "<group>"; };
 		C5E004062FFFF20600E00006 /* HistorySecurityCoordinatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistorySecurityCoordinatorTests.swift; sourceTree = "<group>"; };
 		C5E0040A2FFFF20A00E0000A /* LockManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LockManagerTests.swift; sourceTree = "<group>"; };
+		C5E005002FFFF30000E00000 /* SecuritySettingsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecuritySettingsViewModel.swift; sourceTree = "<group>"; };
+		C5E005022FFFF30200E00002 /* SecurityPreferenceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecurityPreferenceView.swift; sourceTree = "<group>"; };
+		C5E005042FFFF30400E00004 /* SecurityPreferenceHostingController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecurityPreferenceHostingController.swift; sourceTree = "<group>"; };
+		C5E005062FFFF30600E00006 /* SecuritySettingsViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecuritySettingsViewModelTests.swift; sourceTree = "<group>"; };
 		C5E003042FFFF10400E00004 /* EncryptionKeyStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EncryptionKeyStoreTests.swift; sourceTree = "<group>"; };
 		C5E003052FFFF10500E00005 /* HistoryKeyCheckTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryKeyCheckTests.swift; sourceTree = "<group>"; };
 		C5E003062FFFF10600E00006 /* HistorySecurityBootstrapTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistorySecurityBootstrapTests.swift; sourceTree = "<group>"; };
@@ -652,6 +660,7 @@
 				C5E003062FFFF10600E00006 /* HistorySecurityBootstrapTests.swift */,
 				C5E004062FFFF20600E00006 /* HistorySecurityCoordinatorTests.swift */,
 				C5E0040A2FFFF20A00E0000A /* LockManagerTests.swift */,
+				C5E005062FFFF30600E00006 /* SecuritySettingsViewModelTests.swift */,
 			);
 			path = Security;
 			sourceTree = "<group>";
@@ -733,6 +742,9 @@
 			children = (
 				FA1DB4ED1DDCB4C0007F95C8 /* CPYPreferencesWindowController.swift */,
 				FA1DB4EE1DDCB4C0007F95C8 /* CPYPreferencesWindowController.xib */,
+				C5E005042FFFF30400E00004 /* SecurityPreferenceHostingController.swift */,
+				C5E005022FFFF30200E00002 /* SecurityPreferenceView.swift */,
+				C5E005002FFFF30000E00000 /* SecuritySettingsViewModel.swift */,
 				FA1DB4F11DDCB4C0007F95C8 /* Panels */,
 			);
 			path = Preferences;
@@ -1081,6 +1093,9 @@
 				C5E004012FFFF20100E00001 /* CryptoService.swift in Sources */,
 				C5E004052FFFF20500E00005 /* HistorySecurityCoordinator.swift in Sources */,
 				C5E004092FFFF20900E00009 /* LockManager.swift in Sources */,
+				C5E005052FFFF30500E00005 /* SecurityPreferenceHostingController.swift in Sources */,
+				C5E005032FFFF30300E00003 /* SecurityPreferenceView.swift in Sources */,
+				C5E005012FFFF30100E00001 /* SecuritySettingsViewModel.swift in Sources */,
 				FA3778951F3B6920003B5BAB /* Environment.swift in Sources */,
 			);
 		};
@@ -1114,6 +1129,7 @@
 				C5E003162FFFF11600E00016 /* HistorySecurityBootstrapTests.swift in Sources */,
 				C5E004072FFFF20700E00007 /* HistorySecurityCoordinatorTests.swift in Sources */,
 				C5E0040B2FFFF20B00E0000B /* LockManagerTests.swift in Sources */,
+				C5E005072FFFF30700E00007 /* SecuritySettingsViewModelTests.swift in Sources */,
 			);
 		};
 /* End PBXSourcesBuildPhase section */
