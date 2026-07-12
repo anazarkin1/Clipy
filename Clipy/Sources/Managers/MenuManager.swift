@@ -30,6 +30,9 @@ final class MenuManager: NSObject {
         item.menu = clipMenu
         return item
     }()
+    // Search sessions (one per history-bearing menu)
+    private let mainMenuSession = HistoryMenuSessionController()
+    private let historyMenuSession = HistoryMenuSessionController()
     // Icon Cache
     private let folderIcon = NSImage(resource: .iconFolder)
     private let snippetIcon = NSImage(resource: .iconText)
@@ -79,7 +82,11 @@ extension MenuManager {
         case .snippet:
             menu = snippetMenu
         }
-        menu?.highlightingFirstItemIfPossible()
+        // History-bearing menus manage their own focus via the search session
+        // controller; the private first-item highlight must not race with it.
+        if type == .snippet {
+            menu?.highlightingFirstItemIfPossible()
+        }
         menu?.popUp(positioning: nil, at: NSEvent.mouseLocation, in: nil)
     }
 
@@ -203,6 +210,10 @@ private extension MenuManager {
         clipMenu?.addItem(NSMenuItem(title: String(localized: "Preferences"), action: #selector(AppDelegate.showPreferenceWindow)))
         clipMenu?.addItem(NSMenuItem.separator())
         clipMenu?.addItem(NSMenuItem(title: String(localized: "Quit Clipy"), action: #selector(AppDelegate.terminate)))
+
+        // Install the search field as the first item and take over menu delegation.
+        mainMenuSession.attach(to: clipMenu!)
+        historyMenuSession.attach(to: historyMenu!)
 
         statusBarItem.menu = clipMenu
     }
