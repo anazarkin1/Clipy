@@ -50,6 +50,13 @@ final class PasteboardHistoryRepository: PasteboardHistoryRepositoryProtocol {
         currentMetadataMode() == .encrypted
     }
 
+    /// Content-free revision signal fired after a successful write whose effect
+    /// the id-observation cannot see — notably an OCR-only update, which changes
+    /// no id and no `updateAt` and therefore leaves the observed id list equal.
+    /// Only `Void` crosses this subject; no title, OCR, asset, or ciphertext is
+    /// ever published.
+    private let revisionSubject = PassthroughSubject<Void, Never>()
+
     func observeHistories() -> AnyPublisher<[PasteboardHistory], Never> {
         _historyIDs.publisher
             .map { [weak self] _ in
@@ -62,7 +69,13 @@ final class PasteboardHistoryRepository: PasteboardHistoryRepositoryProtocol {
     }
 
     func observeHistoryChanges() -> AnyPublisher<Void, Never> {
-        _historyIDs.publisher.map { _ in }.eraseToAnyPublisher()
+        // Insert/delete/reorder move the observed id list and emit here; an
+        // OCR-only update leaves that list equal, so it is delivered via the
+        // content-free revision subject instead.
+        _historyIDs.publisher
+            .map { _ in () }
+            .merge(with: revisionSubject)
+            .eraseToAnyPublisher()
     }
 
     func hasHistories() -> Bool {
@@ -208,7 +221,7 @@ final class PasteboardHistoryRepository: PasteboardHistoryRepositoryProtocol {
 
     func updateOCRText(id: PasteboardHistory.ID, ocrText: String) {
         guard allowsHistoryServices() else { return }
-        withErrorReporting {
+        let committed = withErrorReporting { () -> Bool in
             try database.write { database in
                 let cryptoService = try CryptoService(database: database)
                 let ocrTextData = try cryptoService?.sealHistoryOCR(Data(ocrText.utf8), historyID: id) ?? Data(ocrText.utf8)
@@ -217,6 +230,12 @@ final class PasteboardHistoryRepository: PasteboardHistoryRepositoryProtocol {
                     .update { $0.ocrTextData = #bind(ocrTextData) }
                     .execute(database)
             }
+            return true
+        }
+        if committed == true {
+            // An OCR-only update does not move the observed id list, so publish a
+            // content-free revision so open menus re-render with the new OCR text.
+            revisionSubject.send(())
         }
     }
 

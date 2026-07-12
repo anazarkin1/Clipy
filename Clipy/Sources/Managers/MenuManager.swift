@@ -30,6 +30,9 @@ final class MenuManager: NSObject {
         item.menu = clipMenu
         return item
     }()
+    // Search sessions (one per history-bearing menu)
+    private let mainMenuSession = HistoryMenuSessionController()
+    private let historyMenuSession = HistoryMenuSessionController()
     // Icon Cache
     private let folderIcon = NSImage(resource: .iconFolder)
     private let snippetIcon = NSImage(resource: .iconText)
@@ -46,6 +49,9 @@ final class MenuManager: NSObject {
     private var mainQueue
     private var cancellables: Set<AnyCancellable> = []
     private var snippetFolderDetails = [SnippetFolderDetail]()
+    /// A full menu-skeleton rebuild requested while a history-bearing menu was
+    /// tracking; applied on `menuDidClose` so the open `NSMenu` is never replaced.
+    private var pendingSkeletonRebuild = false
 
     // MARK: - Enum Values
     enum StatusType: Int {
@@ -62,7 +68,21 @@ final class MenuManager: NSObject {
     }
 
     func setup() {
+        configureSessions()
         bind()
+    }
+
+    private func configureSessions() {
+        for session in [mainMenuSession, historyMenuSession] {
+            session.onMenuWillOpen = { [weak self] session in
+                // Final consistency check: refresh with the latest history.
+                guard let self else { return }
+                session.updateSnapshot(self.makeHistorySnapshot())
+            }
+            session.onMenuDidClose = { [weak self] _ in
+                self?.applyDeferredSkeletonRebuildIfNeeded()
+            }
+        }
     }
 
 }
@@ -79,7 +99,11 @@ extension MenuManager {
         case .snippet:
             menu = snippetMenu
         }
-        menu?.highlightingFirstItemIfPossible()
+        // History-bearing menus manage their own focus via the search session
+        // controller; the private first-item highlight must not race with it.
+        if type == .snippet {
+            menu?.highlightingFirstItemIfPossible()
+        }
         menu?.popUp(positioning: nil, at: NSEvent.mouseLocation, in: nil)
     }
 
@@ -108,7 +132,7 @@ private extension MenuManager {
     func bind() {
         pasteboardHistoryRepository.observeHistoryChanges()
             .receive(on: mainQueue)
-            .sink { [weak self] _ in self?.createClipMenu() }
+            .sink { [weak self] _ in self?.refreshOrRebuildMenus() }
             .store(in: &cancellables)
         notificationCenter.publisher(for: LockManager.stateDidChangeNotification)
             .receive(on: mainQueue)
@@ -118,7 +142,7 @@ private extension MenuManager {
             .receive(on: mainQueue)
             .sink { [weak self] folderDetails in
                 self?.snippetFolderDetails = folderDetails
-                self?.createClipMenu()
+                self?.refreshOrRebuildMenus()
             }
             .store(in: &cancellables)
         // Menu icon
@@ -135,14 +159,14 @@ private extension MenuManager {
             .asDriver(onErrorDriveWith: .empty())
             .drive(onNext: { [weak self] _ in
                 guard let wSelf = self else { return }
-                wSelf.createClipMenu()
+                wSelf.refreshOrRebuildMenus()
             })
             .disposed(by: disposeBag)
         // Edit snippets
         notificationCenter.rx.notification(Notification.Name(rawValue: Constants.Notification.closeSnippetEditor))
             .asDriver(onErrorDriveWith: .empty())
             .drive(onNext: { [weak self] _ in
-                self?.createClipMenu()
+                self?.refreshOrRebuildMenus()
             })
             .disposed(by: disposeBag)
         // Observe change preference settings
@@ -178,9 +202,35 @@ private extension MenuManager {
             .throttle(.seconds(1), scheduler: MainScheduler.instance)
             .asDriver(onErrorDriveWith: .empty())
             .drive(onNext: { [weak self] in
-                self?.createClipMenu()
+                self?.refreshOrRebuildMenus()
             })
             .disposed(by: disposeBag)
+    }
+
+    /// Applies a history/preference/snippet change. While a history-bearing menu
+    /// is tracking, the open menu is refreshed in place (history/presentation via
+    /// the session snapshot) and any skeleton change is deferred to close; the
+    /// tracking `NSMenu` is never replaced. Otherwise the menus are rebuilt.
+    func refreshOrRebuildMenus() {
+        guard isAnyHistoryMenuOpen else {
+            createClipMenu()
+            return
+        }
+        let snapshot = makeHistorySnapshot()
+        if mainMenuSession.isMenuOpen { mainMenuSession.updateSnapshot(snapshot) }
+        if historyMenuSession.isMenuOpen { historyMenuSession.updateSnapshot(snapshot) }
+        // Snippet/footer changes cannot be swapped safely into a tracking menu.
+        pendingSkeletonRebuild = true
+    }
+
+    func applyDeferredSkeletonRebuildIfNeeded() {
+        guard !isAnyHistoryMenuOpen, pendingSkeletonRebuild else { return }
+        pendingSkeletonRebuild = false
+        createClipMenu()
+    }
+
+    var isAnyHistoryMenuOpen: Bool {
+        mainMenuSession.isMenuOpen || historyMenuSession.isMenuOpen
     }
 }
 
@@ -191,8 +241,12 @@ private extension MenuManager {
         historyMenu = NSMenu(title: Constants.Menu.history)
         snippetMenu = NSMenu(title: Constants.Menu.snippet)
 
-        addHistoryItems(clipMenu!)
-        addHistoryItems(historyMenu!)
+        // One snapshot feeds both history-bearing menus so they never fetch or
+        // decrypt the same rows separately, and so a preference change cannot
+        // split a render across two configurations.
+        let snapshot = makeHistorySnapshot()
+        installHistorySection(into: clipMenu!, session: mainMenuSession, snapshot: snapshot)
+        installHistorySection(into: historyMenu!, session: historyMenuSession, snapshot: snapshot)
 
         addSnippetItems(clipMenu!, separateMenu: true, details: snippetFolderDetails)
         addSnippetItems(snippetMenu!, separateMenu: false, details: snippetFolderDetails)
@@ -211,21 +265,22 @@ private extension MenuManager {
         statusBarItem.menu = clipMenu
     }
 
-    func menuItemTitle(_ title: String, listNumber: NSInteger, isMarkWithNumber: Bool) -> String {
-        return (isMarkWithNumber) ? "\(listNumber). \(title)" : title
+    func installHistorySection(into menu: NSMenu, session: HistoryMenuSessionController, snapshot: HistoryMenuSnapshot) {
+        if addProtectedHistoryItemsIfNeeded(menu) {
+            session.clearForProtectedState()
+            return
+        }
+        session.install(
+            into: menu,
+            snapshot: snapshot,
+            action: #selector(AppDelegate.selectClipMenuItem(_:)),
+            target: nil,
+            folderIcon: folderIcon
+        )
     }
 
-    func makeSubmenuItem(_ count: Int, start: Int, end: Int, numberOfItems: Int) -> NSMenuItem {
-        var count = count
-        if start == 0 {
-            count -= 1
-        }
-        var lastNumber = count + numberOfItems
-        if end < lastNumber {
-            lastNumber = end
-        }
-        let menuItemTitle = "\(count + 1) - \(lastNumber)"
-        return makeSubmenuItem(menuItemTitle)
+    func menuItemTitle(_ title: String, listNumber: NSInteger, isMarkWithNumber: Bool) -> String {
+        return (isMarkWithNumber) ? "\(listNumber). \(title)" : title
     }
 
     func makeSubmenuItem(_ title: String) -> NSMenuItem {
@@ -239,129 +294,75 @@ private extension MenuManager {
 
 // MARK: - Clips
 private extension MenuManager {
-    func addHistoryItems(_ menu: NSMenu) {
-        let placeInLine = AppEnvironment.current.defaults.integer(forKey: Constants.UserDefaults.numberOfItemsPlaceInline)
-        let placeInsideFolder = AppEnvironment.current.defaults.integer(forKey: Constants.UserDefaults.numberOfItemsPlaceInsideFolder)
-        let maxHistory = AppEnvironment.current.defaults.integer(forKey: Constants.UserDefaults.maxHistorySize)
-
-        // History title
-        let labelItem = NSMenuItem(title: String(localized: "History"), action: nil)
-        labelItem.isEnabled = false
-        menu.addItem(labelItem)
-
-        if addLockedHistoryItemIfNeeded(menu) {
-            return
-        }
-
-        // History
-        let firstIndex = firstIndexOfMenuItems()
-        var listNumber = firstIndex
-        var subMenuCount = placeInLine
-        var subMenuIndex = 1 + placeInLine
-
-        let reorderClipsAfterPasting = AppEnvironment.current.defaults.bool(forKey: Constants.UserDefaults.reorderClipsAfterPasting)
-        let isShowImage = AppEnvironment.current.defaults.bool(forKey: Constants.UserDefaults.showImageInTheMenu)
-        let isShowColorCode = AppEnvironment.current.defaults.bool(forKey: Constants.UserDefaults.showColorPreviewInTheMenu)
-        let historyDetails = pasteboardHistoryRepository.fetchHistoryDetails(
-            sortsByCreatedAt: !reorderClipsAfterPasting,
-            includesThumbnailAsset: isShowImage || isShowColorCode,
-            limit: maxHistory
-        )
-        let currentSize = historyDetails.count
-        var i = 0
-        historyDetails.forEach { historyDetail in
-            if placeInLine < 1 || placeInLine - 1 < i {
-                // Folder
-                if i == subMenuCount {
-                    let subMenuItem = makeSubmenuItem(subMenuCount, start: firstIndex, end: currentSize, numberOfItems: placeInsideFolder)
-                    menu.addItem(subMenuItem)
-                    listNumber = firstIndex
-                }
-
-                // Clip
-                if let subMenu = menu.item(at: subMenuIndex)?.submenu {
-                    let menuItem = makeClipMenuItem(historyDetail, index: i, listNumber: listNumber)
-                    subMenu.addItem(menuItem)
-                    listNumber += 1
-                }
-            } else {
-                // Clip
-                let menuItem = makeClipMenuItem(historyDetail, index: i, listNumber: listNumber)
-                menu.addItem(menuItem)
-                listNumber += 1
-            }
-
-            i += 1
-            if i == subMenuCount + placeInsideFolder {
-                subMenuCount += placeInsideFolder
-                subMenuIndex += 1
-            }
-        }
+    /// Builds one immutable snapshot of history details plus presentation
+    /// preferences, fetching/decoding history exactly once.
+    func makeHistorySnapshot() -> HistoryMenuSnapshot {
+        let presentation = makeHistoryPresentation()
+        let details = fetchHistoryDetails(presentation: presentation)
+        return HistoryMenuSnapshot(details: details, presentation: presentation)
     }
 
-    func addLockedHistoryItemIfNeeded(_ menu: NSMenu) -> Bool {
+    /// Captures the current menu presentation preferences into an immutable value.
+    func makeHistoryPresentation() -> HistoryMenuPresentation {
+        let defaults = AppEnvironment.current.defaults
+        return HistoryMenuPresentation(
+            firstListNumber: firstIndexOfMenuItems(),
+            isMarkedWithNumbers: defaults.bool(forKey: Constants.UserDefaults.menuItemsAreMarkedWithNumbers),
+            addsNumericKeyEquivalents: defaults.bool(forKey: Constants.UserDefaults.addNumericKeyEquivalents),
+            maxKeyEquivalents: kMaxKeyEquivalents,
+            numberOfItemsPlaceInline: defaults.integer(forKey: Constants.UserDefaults.numberOfItemsPlaceInline),
+            numberOfItemsPlaceInsideFolder: defaults.integer(forKey: Constants.UserDefaults.numberOfItemsPlaceInsideFolder),
+            showsImage: defaults.bool(forKey: Constants.UserDefaults.showImageInTheMenu),
+            showsColorPreview: defaults.bool(forKey: Constants.UserDefaults.showColorPreviewInTheMenu),
+            showsFolderIcon: defaults.bool(forKey: Constants.UserDefaults.showIconInTheMenu),
+            thumbnailWidth: defaults.integer(forKey: Constants.UserDefaults.thumbnailWidth),
+            thumbnailHeight: defaults.integer(forKey: Constants.UserDefaults.thumbnailHeight),
+            showsToolTip: defaults.bool(forKey: Constants.UserDefaults.showToolTipOnMenuItem),
+            maxLengthOfToolTip: defaults.integer(forKey: Constants.UserDefaults.maxLengthOfToolTip)
+        )
+    }
+
+    func addProtectedHistoryItemsIfNeeded(_ menu: NSMenu) -> Bool {
+        let placeholder: NSMenuItem?
         switch HistorySecurityBootstrap.startupState {
         case .locked:
-            menu.addItem(NSMenuItem(title: String(localized: "Unlock History"), action: #selector(AppDelegate.unlockHistory)))
-            return true
+            placeholder = NSMenuItem(title: String(localized: "Unlock History"), action: #selector(AppDelegate.unlockHistory))
         case .keyMissing:
-            let item = NSMenuItem(title: String(localized: "History Key Missing"), action: #selector(AppDelegate.clearInaccessibleHistory))
-            menu.addItem(item)
-            return true
+            placeholder = NSMenuItem(title: String(localized: "History Key Missing"), action: #selector(AppDelegate.clearInaccessibleHistory))
         case .keyUnavailable:
             let item = NSMenuItem(title: String(localized: "History Key Unavailable"), action: nil)
             item.isEnabled = false
-            menu.addItem(item)
-            return true
+            placeholder = item
         case .transitioning:
             let item = NSMenuItem(title: String(localized: "History Maintenance In Progress"), action: nil)
             item.isEnabled = false
-            menu.addItem(item)
-            return true
+            placeholder = item
         case .corrupt:
             let item = NSMenuItem(title: String(localized: "History Security Error"), action: nil)
             item.isEnabled = false
-            menu.addItem(item)
-            return true
+            placeholder = item
         case .plaintext, .blockedByOrphanKeys, .unlocked:
-            return false
+            placeholder = nil
         }
+
+        guard let placeholder else { return false }
+
+        let labelItem = NSMenuItem(title: String(localized: "History"), action: nil)
+        labelItem.isEnabled = false
+        menu.addItem(labelItem)
+        menu.addItem(placeholder)
+        return true
     }
 
-    func makeClipMenuItem(_ historyDetail: PasteboardHistoryDetail, index: Int, listNumber: Int) -> NSMenuItem {
-        let history = historyDetail.history
-        let isMarkWithNumber = AppEnvironment.current.defaults.bool(forKey: Constants.UserDefaults.menuItemsAreMarkedWithNumbers)
-        let isShowImage = AppEnvironment.current.defaults.bool(forKey: Constants.UserDefaults.showImageInTheMenu)
-        let isShowColorCode = AppEnvironment.current.defaults.bool(forKey: Constants.UserDefaults.showColorPreviewInTheMenu)
-        let addNumbericKeyEquivalents = AppEnvironment.current.defaults.bool(forKey: Constants.UserDefaults.addNumericKeyEquivalents)
-
-        var keyEquivalent = ""
-        if addNumbericKeyEquivalents && (index < kMaxKeyEquivalents) {
-            let isStartFromZero = AppEnvironment.current.defaults.bool(forKey: Constants.UserDefaults.menuItemsTitleStartWithZero)
-
-            var shortCutNumber = (isStartFromZero) ? index : index + 1
-            if shortCutNumber == kMaxKeyEquivalents {
-                shortCutNumber = 0
-            }
-            keyEquivalent = "\(shortCutNumber)"
-        }
-
-        let titleWithMark = menuItemTitle(history.typedTitle, listNumber: listNumber, isMarkWithNumber: isMarkWithNumber)
-
-        let menuItem = NSMenuItem(title: titleWithMark, action: #selector(AppDelegate.selectClipMenuItem(_:)), keyEquivalent: keyEquivalent)
-        menuItem.representedObject = history.id
-        menuItem.toolTip = history.toolTip
-
-        if isShowImage || isShowColorCode,
-           let thumbnailAsset = historyDetail.thumbnailAsset,
-           let image = NSImage(data: thumbnailAsset.data),
-           (thumbnailAsset.kind == .image && isShowImage) || (thumbnailAsset.kind == .colorCode && isShowColorCode) {
-            let width = AppEnvironment.current.defaults.integer(forKey: Constants.UserDefaults.thumbnailWidth)
-            let height = AppEnvironment.current.defaults.integer(forKey: Constants.UserDefaults.thumbnailHeight)
-            menuItem.image = image.aspectFitImage(CGFloat(width), CGFloat(height))
-        }
-
-        return menuItem
+    func fetchHistoryDetails(presentation: HistoryMenuPresentation) -> [PasteboardHistoryDetail] {
+        let defaults = AppEnvironment.current.defaults
+        let reorderClipsAfterPasting = defaults.bool(forKey: Constants.UserDefaults.reorderClipsAfterPasting)
+        let maxHistory = defaults.integer(forKey: Constants.UserDefaults.maxHistorySize)
+        return pasteboardHistoryRepository.fetchHistoryDetails(
+            sortsByCreatedAt: !reorderClipsAfterPasting,
+            includesThumbnailAsset: presentation.showsImage || presentation.showsColorPreview,
+            limit: maxHistory
+        )
     }
 }
 
