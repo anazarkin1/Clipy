@@ -413,4 +413,21 @@ struct HistoryMenuSessionControllerTests {
         #expect(controller.dynamicItems.isEmpty)
         #expect(controller.snapshot?.documentsByID.isEmpty == true)
     }
+
+    // MARK: - Milestone 5: localization / accessibility
+    @Test
+    func localizedSectionLabelsAreDistinctAndNonEmpty() {
+        let (controller, _, _) = makeController()
+        #expect(!controller.historyLabel.isEmpty)
+        #expect(!controller.searchResultsLabel.isEmpty)
+        #expect(!controller.noMatchesLabel.isEmpty)
+        #expect(controller.historyLabel != controller.searchResultsLabel)
+        #expect(controller.searchResultsLabel != controller.noMatchesLabel)
+    }
+
+    @Test
+    func searchFieldReportsNoMarkedTextByDefault() {
+        let (controller, _, _) = makeController()
+        #expect(!controller.searchFieldView.hasMarkedText)
+    }
 }

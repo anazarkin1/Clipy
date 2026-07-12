@@ -44,6 +44,13 @@ final class HistorySearchFieldView: NSView, NSSearchFieldDelegate {
     let searchField = NSSearchField()
     weak var delegate: HistorySearchFieldViewDelegate?
 
+    /// Whether the field editor currently holds uncommitted marked text (an
+    /// in-progress IME composition). Used to avoid announcing intermediate
+    /// composition states to VoiceOver.
+    var hasMarkedText: Bool {
+        (searchField.currentEditor() as? NSTextView)?.hasMarkedText() ?? false
+    }
+
     /// Current, untrimmed query text.
     var query: String {
         get { searchField.stringValue }
@@ -71,6 +78,7 @@ final class HistorySearchFieldView: NSView, NSSearchFieldDelegate {
         searchField.sendsSearchStringImmediately = true
         searchField.sendsWholeSearchString = false
         searchField.placeholderString = String(localized: "Search History")
+        searchField.setAccessibilityLabel(String(localized: "Search History"))
         searchField.focusRingType = .none
         (searchField.cell as? NSSearchFieldCell)?.cancelButtonCell?.target = self
         (searchField.cell as? NSSearchFieldCell)?.cancelButtonCell?.action = #selector(cancelButtonClicked(_:))

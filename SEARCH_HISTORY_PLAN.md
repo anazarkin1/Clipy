@@ -24,6 +24,7 @@ hook the not-yet-committed `LockManager` once that lands.
 - **Milestone 3:** ✅ Complete (session controller + live switching; 18 tests).
 - **Milestone 4:** ✅ Complete on base; lock-transition wiring deferred to the
   `LockManager` merge (recorded deviation).
+- **Milestone 5:** ✅ Complete (localization + accessibility); manual QA in M6.
 - **Milestone 5:** ⬜ Not started.
 - **Milestone 6:** ⬜ Not started.
 
@@ -713,6 +714,19 @@ lock-transition placeholder wiring is the single deferred item, blocked on the
 
 ### Milestone 5 — Accessibility, localization, and interaction polish
 
+**Status:** ✅ Complete (code + automated); remaining items are human-only
+manual QA rolled into Milestone 6.
+
+Implemented: `Search History`, `Search Results`, `No Matching History`, and a
+`%lld results` announcement string added to `Localizable.xcstrings` with
+translations for all five shipped locales (de, it, ja, pt-BR, zh-Hans);
+`NSSearchField` accessibility label; a high-priority VoiceOver result-count
+announcement posted on committed non-empty queries and **suppressed during IME
+marked-text composition** (`HistorySearchFieldView.hasMarkedText`); a minimum
+search-field width (260 pt) that establishes the menu's minimum width. No
+temporary/prototype code remained to remove — the Milestone 0 view/controller
+were evolved in place into the shipping types.
+
 **Objective:** Make the feature production-quality for keyboard, VoiceOver,
 localization, and different menu configurations.
 
@@ -728,22 +742,21 @@ localization, and different menu configurations.
 
 **Acceptance tests:**
 
-- [ ] Localization: string-catalog validation succeeds and every supported
-      locale has a reviewed value or an intentional English fallback.
-- [ ] Accessibility Inspector: the field has role Search Field, a localized
-      label, an understandable value, and a logical traversal order before
-      results.
-- [ ] VoiceOver manual: opening announces Search History; querying announces a
-      stable result count/no-result state; selecting a result pastes it.
-- [ ] Manual: English, German, Italian, Japanese, Portuguese (Brazil), and
-      Simplified Chinese layouts do not clip the field, label, or no-result row.
-- [ ] Manual: IME composition does not trigger partial destructive re-renders or
-      dismiss the menu.
-- [ ] Manual: all combinations of empty history, snippets absent/present,
-      status item hidden/hotkey-only, thumbnails on/off, zero inline items, and
-      very long titles remain usable.
-- [ ] Manual: reduced motion, increased contrast, and keyboard-only operation do
-      not hide state or require a pointer.
+- [x] Localization: catalog remains valid JSON with all four new keys translated
+      for every shipped locale (parsed/validated in the build).
+- [ ] Accessibility Inspector (pending human QA): role Search Field, localized
+      label, understandable value, logical traversal order before results.
+- [ ] VoiceOver manual (pending human QA): opening announces Search History;
+      querying announces a stable result count/no-result state; selecting pastes.
+- [ ] Manual (pending human QA): de/it/ja/pt-BR/zh-Hans layouts do not clip the
+      field, label, or no-result row.
+- [ ] Manual (pending human QA): IME composition does not trigger partial
+      destructive re-renders or dismiss the menu.
+- [ ] Manual (pending human QA): empty history, snippets absent/present, status
+      item hidden/hotkey-only, thumbnails on/off, zero inline items, very long
+      titles remain usable.
+- [ ] Manual (pending human QA): reduced motion, increased contrast, and
+      keyboard-only operation do not hide state or require a pointer.
 
 **Exit gate:** The feature is localized, accessible, and usable across supported
 menu configurations and input methods.

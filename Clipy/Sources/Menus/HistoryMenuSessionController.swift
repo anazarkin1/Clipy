@@ -209,6 +209,24 @@ final class HistoryMenuSessionController: NSObject {
             items = renderer.makeHistoryItems(details)
         }
         replaceDynamicItems(with: items, in: menu)
+        announceResultCountIfNeeded(query: searchQuery, count: details.count)
+    }
+
+    /// Posts a VoiceOver announcement of the result count for a committed query.
+    /// Intentionally silent for the empty (History) query and while an IME
+    /// composition is in progress, so intermediate marked-text updates are not
+    /// announced.
+    private func announceResultCountIfNeeded(query: HistorySearchQuery, count: Int) {
+        guard !query.isEmpty, !searchFieldView.hasMarkedText else { return }
+        let message = count > 0 ? String(localized: "\(count) results") : noMatchesLabel
+        NSAccessibility.post(
+            element: searchFieldView,
+            notification: .announcementRequested,
+            userInfo: [
+                .announcement: message,
+                .priority: NSAccessibilityPriorityLevel.high.rawValue
+            ]
+        )
     }
 
     private func replaceDynamicItems(with items: [NSMenuItem], in menu: NSMenu) {
