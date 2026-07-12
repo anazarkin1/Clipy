@@ -15,6 +15,7 @@ import AppKit
 /// A cancellable handle for a scheduled debounce.
 final class HistoryMenuDebounceToken {
     private var cancelHandler: (() -> Void)?
+
     init(cancel: @escaping () -> Void) { self.cancelHandler = cancel }
     func cancel() {
         cancelHandler?()

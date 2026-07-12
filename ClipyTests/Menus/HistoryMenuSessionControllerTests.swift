@@ -14,64 +14,82 @@ import AppKit
 import Testing
 @testable import Clipy
 
+// MARK: - Test doubles
+
+/// Captures the scheduled focus block so tests can run it deterministically.
+private final class FocusRecorder {
+    private(set) var scheduledBlocks: [() -> Void] = []
+
+    func schedule(_ work: @escaping () -> Void) {
+        scheduledBlocks.append(work)
+    }
+
+    func fireAll() {
+        let blocks = scheduledBlocks
+        scheduledBlocks.removeAll()
+        blocks.forEach { $0() }
+    }
+}
+
+/// Captures scheduled debounce work and honors cancellation.
+private final class DebounceRecorder {
+    private final class Entry {
+        let work: () -> Void
+        var cancelled = false
+
+        init(_ work: @escaping () -> Void) {
+            self.work = work
+        }
+    }
+
+    private var entries: [Entry] = []
+
+    func schedule(_ delay: TimeInterval, _ work: @escaping () -> Void) -> HistoryMenuDebounceToken {
+        let entry = Entry(work)
+        entries.append(entry)
+        return HistoryMenuDebounceToken { entry.cancelled = true }
+    }
+
+    /// Fire every not-yet-cancelled scheduled block.
+    func firePending() {
+        entries.filter { !$0.cancelled }.forEach { $0.work() }
+    }
+}
+
+/// Bundles the two recorders so the controller factory returns a small tuple.
+private final class Recorders {
+    let focus = FocusRecorder()
+    let debounce = DebounceRecorder()
+}
+
+private final class SelectSpy: NSObject {
+    private(set) var received: [PasteboardHistory.ID] = []
+
+    @objc func selectClipMenuItem(_ sender: NSMenuItem) {
+        if let id = sender.representedObject as? PasteboardHistory.ID {
+            received.append(id)
+        }
+    }
+}
+
+// MARK: - Suite
+
 @MainActor
 @Suite
 struct HistoryMenuSessionControllerTests {
 
     private let action = #selector(AppDelegate.selectClipMenuItem(_:))
 
-    // MARK: - Test doubles
-    /// Captures the scheduled focus block so tests can run it deterministically.
-    final class FocusRecorder {
-        private(set) var scheduledBlocks: [() -> Void] = []
-        func schedule(_ work: @escaping () -> Void) { scheduledBlocks.append(work) }
-        func fireAll() {
-            let blocks = scheduledBlocks
-            scheduledBlocks.removeAll()
-            blocks.forEach { $0() }
-        }
-    }
-
-    /// Captures scheduled debounce work and honors cancellation.
-    final class DebounceRecorder {
-        final class Entry {
-            let work: () -> Void
-            var cancelled = false
-            init(_ work: @escaping () -> Void) { self.work = work }
-        }
-        private(set) var entries: [Entry] = []
-        func schedule(_ delay: TimeInterval, _ work: @escaping () -> Void) -> HistoryMenuDebounceToken {
-            let entry = Entry(work)
-            entries.append(entry)
-            return HistoryMenuDebounceToken { entry.cancelled = true }
-        }
-        /// Fire every not-yet-cancelled scheduled block.
-        func firePending() {
-            entries.filter { !$0.cancelled }.forEach { $0.work() }
-        }
-    }
-
-    final class SelectSpy: NSObject {
-        private(set) var received: [PasteboardHistory.ID] = []
-        @objc func selectClipMenuItem(_ sender: NSMenuItem) {
-            if let id = sender.representedObject as? PasteboardHistory.ID {
-                received.append(id)
-            }
-        }
-    }
-
-    // MARK: - Fixtures
-    private func makeController() -> (HistoryMenuSessionController, FocusRecorder, DebounceRecorder) {
-        let focus = FocusRecorder()
-        let debounce = DebounceRecorder()
+    fileprivate func makeController() -> (HistoryMenuSessionController, Recorders) {
+        let recorders = Recorders()
         let controller = HistoryMenuSessionController(
-            focusScheduler: { focus.schedule($0) },
-            debounceScheduler: { debounce.schedule($0, $1) }
+            focusScheduler: { recorders.focus.schedule($0) },
+            debounceScheduler: { recorders.debounce.schedule($0, $1) }
         )
-        return (controller, focus, debounce)
+        return (controller, recorders)
     }
 
-    private func presentation(numeric: Bool = false, inline: Int = 20, marked: Bool = false) -> HistoryMenuPresentation {
+    fileprivate func presentation(numeric: Bool = false, inline: Int = 20, marked: Bool = false) -> HistoryMenuPresentation {
         HistoryMenuPresentation(
             firstListNumber: 1,
             isMarkedWithNumbers: marked,
@@ -88,7 +106,7 @@ struct HistoryMenuSessionControllerTests {
         )
     }
 
-    private func snapshot(_ rows: [(String, String)], numeric: Bool = false, inline: Int = 20, marked: Bool = false) -> HistoryMenuSnapshot {
+    fileprivate func snapshot(_ rows: [(String, String)], numeric: Bool = false, inline: Int = 20, marked: Bool = false) -> HistoryMenuSnapshot {
         let details = rows.map { id, title in
             PasteboardHistoryDetail(
                 history: PasteboardHistory(
@@ -107,32 +125,38 @@ struct HistoryMenuSessionControllerTests {
     }
 
     /// Simulates real typing: updates the field editor value and notifies the delegate.
-    private func type(_ controller: HistoryMenuSessionController, _ text: String) {
+    fileprivate func type(_ controller: HistoryMenuSessionController, _ text: String) {
         controller.searchFieldView.query = text
         controller.historySearchFieldView(controller.searchFieldView, didChangeQuery: text)
     }
 
     @discardableResult
-    private func install(_ controller: HistoryMenuSessionController, snapshot: HistoryMenuSnapshot, target: AnyObject? = nil) -> NSMenu {
+    fileprivate func install(_ controller: HistoryMenuSessionController, snapshot: HistoryMenuSnapshot, target: AnyObject? = nil) -> NSMenu {
         let menu = NSMenu()
         controller.install(into: menu, snapshot: snapshot, action: action, target: target, folderIcon: nil)
         return menu
     }
+}
 
-    // MARK: - Milestone 0 focus lifecycle
+// MARK: - Focus lifecycle (Milestone 0)
+
+extension HistoryMenuSessionControllerTests {
     @Test
     func menuWillOpenSchedulesExactlyOneFocusRequest() {
-        let (controller, focus, _) = makeController()
+        let (controller, recorders) = makeController()
         let menu = install(controller, snapshot: snapshot([("1", "a")]))
+
         controller.menuWillOpen(menu)
+
         #expect(controller.isMenuOpen)
-        #expect(focus.scheduledBlocks.count == 1)
+        #expect(recorders.focus.scheduledBlocks.count == 1)
     }
 
     @Test
     func menuDidCloseCancelsPendingFocusAndClearsQuery() {
-        let (controller, focus, _) = makeController()
+        let (controller, recorders) = makeController()
         let menu = install(controller, snapshot: snapshot([("1", "a")]))
+
         controller.menuWillOpen(menu)
         controller.historySearchFieldView(controller.searchFieldView, didChangeQuery: "hello")
         #expect(controller.query == "hello")
@@ -142,14 +166,17 @@ struct HistoryMenuSessionControllerTests {
         #expect(controller.query.isEmpty)
         #expect(controller.searchFieldView.query.isEmpty)
 
-        focus.fireAll()
+        recorders.focus.fireAll()
         #expect(controller.performedFocusCount == 0)
     }
+}
 
-    // MARK: - Install & label
+// MARK: - Install & query switching (Milestone 3)
+
+extension HistoryMenuSessionControllerTests {
     @Test
     func installRendersSearchItemLabelAndUnfilteredHistory() {
-        let (controller, _, _) = makeController()
+        let (controller, _) = makeController()
         let menu = install(controller, snapshot: snapshot([("1", "alpha"), ("2", "beta")]))
 
         #expect(menu.items.first === controller.searchMenuItem)
@@ -159,15 +186,14 @@ struct HistoryMenuSessionControllerTests {
         #expect(menu.items.count == 4)
     }
 
-    // MARK: - Query switching
     @Test
     func nonEmptyQueryRendersFilteredSearchResults() {
-        let (controller, _, debounce) = makeController()
+        let (controller, recorders) = makeController()
         let menu = install(controller, snapshot: snapshot([("1", "alpha"), ("2", "beta"), ("3", "gamma")]))
         controller.menuWillOpen(menu)
 
         controller.historySearchFieldView(controller.searchFieldView, didChangeQuery: "beta")
-        debounce.firePending()
+        recorders.debounce.firePending()
 
         #expect(controller.sectionLabelItem.title == controller.searchResultsLabel)
         #expect(controller.dynamicItems.map(\.title) == ["beta"])
@@ -176,12 +202,12 @@ struct HistoryMenuSessionControllerTests {
 
     @Test
     func noMatchShowsSingleDisabledNoMatchesItem() {
-        let (controller, _, debounce) = makeController()
+        let (controller, recorders) = makeController()
         let menu = install(controller, snapshot: snapshot([("1", "alpha")]))
         controller.menuWillOpen(menu)
 
         controller.historySearchFieldView(controller.searchFieldView, didChangeQuery: "zzz")
-        debounce.firePending()
+        recorders.debounce.firePending()
 
         #expect(controller.dynamicItems.count == 1)
         #expect(controller.dynamicItems[0].title == controller.noMatchesLabel)
@@ -191,76 +217,71 @@ struct HistoryMenuSessionControllerTests {
 
     @Test
     func clearingRestoresIdenticalUnfilteredStructure() {
-        let (controller, _, debounce) = makeController()
+        let (controller, recorders) = makeController()
         let menu = install(controller, snapshot: snapshot([("1", "alpha"), ("2", "beta")]))
         controller.menuWillOpen(menu)
 
         controller.historySearchFieldView(controller.searchFieldView, didChangeQuery: "beta")
-        debounce.firePending()
+        recorders.debounce.firePending()
         #expect(controller.dynamicItems.map(\.title) == ["beta"])
 
         controller.historySearchFieldView(controller.searchFieldView, didChangeQuery: "")
-        // No debounce fire needed: clearing is synchronous.
         #expect(controller.sectionLabelItem.title == controller.historyLabel)
         #expect(controller.dynamicItems.map(\.title) == ["alpha", "beta"])
     }
 
     @Test
     func staleDebouncedWorkCannotReplaceRestoredHistory() {
-        let (controller, _, debounce) = makeController()
+        let (controller, recorders) = makeController()
         let menu = install(controller, snapshot: snapshot([("1", "alpha"), ("2", "beta")]))
         controller.menuWillOpen(menu)
 
-        // Type a query (schedules debounced work) then clear before it fires.
         controller.historySearchFieldView(controller.searchFieldView, didChangeQuery: "beta")
         controller.historySearchFieldView(controller.searchFieldView, didChangeQuery: "")
 
-        // Firing the stale (cancelled) work must not re-apply the filter.
-        debounce.firePending()
+        recorders.debounce.firePending()
         #expect(controller.sectionLabelItem.title == controller.historyLabel)
         #expect(controller.dynamicItems.map(\.title) == ["alpha", "beta"])
     }
 
     @Test
     func olderSnapshotResultCannotOverwriteNewer() {
-        let (controller, _, debounce) = makeController()
+        let (controller, recorders) = makeController()
         let menu = install(controller, snapshot: snapshot([("1", "alpha"), ("2", "beta")]))
         controller.menuWillOpen(menu)
 
         controller.historySearchFieldView(controller.searchFieldView, didChangeQuery: "beta")
-        // A new snapshot arrives before the debounced work runs.
         controller.updateSnapshot(snapshot([("3", "beta two"), ("4", "delta")]))
 
-        debounce.firePending() // stale generation → ignored
+        recorders.debounce.firePending()
         #expect(controller.dynamicItems.map(\.title) == ["beta two", "delta"])
     }
 
     @Test
     func queryUpdatesRetainMenuSearchItemAndFieldIdentities() {
-        let (controller, _, debounce) = makeController()
+        let (controller, recorders) = makeController()
         let menu = install(controller, snapshot: snapshot([("1", "alpha"), ("2", "beta")]))
         controller.menuWillOpen(menu)
         let searchItem = controller.searchMenuItem
         let field = controller.searchFieldView
 
         controller.historySearchFieldView(controller.searchFieldView, didChangeQuery: "beta")
-        debounce.firePending()
+        recorders.debounce.firePending()
 
         #expect(controller.searchMenuItem === searchItem)
         #expect(controller.searchFieldView === field)
         #expect(menu.items.first === searchItem)
     }
 
-    // MARK: - Return / Down / numeric shortcuts
     @Test
     func returnInvokesFirstResultExactlyOnce() {
-        let (controller, _, debounce) = makeController()
+        let (controller, recorders) = makeController()
         let spy = SelectSpy()
         let menu = install(controller, snapshot: snapshot([("1", "alpha"), ("2", "beta")]), target: spy)
         controller.menuWillOpen(menu)
 
         controller.historySearchFieldView(controller.searchFieldView, didChangeQuery: "beta")
-        debounce.firePending()
+        recorders.debounce.firePending()
 
         controller.historySearchFieldViewDidCommit(controller.searchFieldView)
         #expect(spy.received == [.init(rawValue: "2")])
@@ -268,13 +289,13 @@ struct HistoryMenuSessionControllerTests {
 
     @Test
     func returnDoesNothingWhenNoResults() {
-        let (controller, _, debounce) = makeController()
+        let (controller, recorders) = makeController()
         let spy = SelectSpy()
         let menu = install(controller, snapshot: snapshot([("1", "alpha")]), target: spy)
         controller.menuWillOpen(menu)
 
         controller.historySearchFieldView(controller.searchFieldView, didChangeQuery: "zzz")
-        debounce.firePending()
+        recorders.debounce.firePending()
 
         controller.historySearchFieldViewDidCommit(controller.searchFieldView)
         #expect(spy.received.isEmpty)
@@ -282,11 +303,10 @@ struct HistoryMenuSessionControllerTests {
 
     @Test
     func numericShortcutsSuppressedWhileFocusedAndRestoredOnMoveToResults() {
-        let (controller, _, _) = makeController()
+        let (controller, _) = makeController()
         let menu = install(controller, snapshot: snapshot([("1", "alpha"), ("2", "beta")], numeric: true))
         controller.menuWillOpen(menu)
 
-        // While the field is focused, digits must edit text, not trigger shortcuts.
         #expect(controller.numericShortcutsSuppressed)
         #expect(controller.dynamicItems.allSatisfy { $0.keyEquivalent.isEmpty })
 
@@ -295,18 +315,16 @@ struct HistoryMenuSessionControllerTests {
         #expect(controller.dynamicItems.first?.keyEquivalent == "1")
     }
 
-    // MARK: - Skeleton coexistence
     @Test
     func footerItemsRemainPresentDuringSearch() {
-        let (controller, _, debounce) = makeController()
+        let (controller, recorders) = makeController()
         let menu = install(controller, snapshot: snapshot([("1", "alpha"), ("2", "beta")]))
-        // Simulate MenuManager appending snippets/footer after the history section.
         let footer = NSMenuItem(title: "Quit", action: nil, keyEquivalent: "")
         menu.addItem(footer)
         controller.menuWillOpen(menu)
 
         controller.historySearchFieldView(controller.searchFieldView, didChangeQuery: "beta")
-        debounce.firePending()
+        recorders.debounce.firePending()
 
         #expect(menu.items.last === footer)
         #expect(menu.items.contains(footer))
@@ -314,7 +332,7 @@ struct HistoryMenuSessionControllerTests {
 
     @Test
     func installMovesStableItemsToNewMenu() {
-        let (controller, _, _) = makeController()
+        let (controller, _) = makeController()
         let menuA = install(controller, snapshot: snapshot([("1", "a")]))
         #expect(menuA.items.contains(controller.searchMenuItem))
 
@@ -322,20 +340,22 @@ struct HistoryMenuSessionControllerTests {
         #expect(!menuA.items.contains(controller.searchMenuItem))
         #expect(menuB.items.first === controller.searchMenuItem)
     }
+}
 
-    // MARK: - Milestone 4: live data / preferences / protected state
+// MARK: - Live data / preferences / protected state (Milestone 4)
+
+extension HistoryMenuSessionControllerTests {
     @Test
     func updateSnapshotReappliesActiveQueryPreservingIdentities() {
-        let (controller, _, debounce) = makeController()
+        let (controller, recorders) = makeController()
         let menu = install(controller, snapshot: snapshot([("1", "alpha"), ("2", "beta")]))
         controller.menuWillOpen(menu)
         type(controller, "beta")
-        debounce.firePending()
+        recorders.debounce.firePending()
         #expect(controller.dynamicItems.map(\.title) == ["beta"])
 
         let searchItem = controller.searchMenuItem
         let field = controller.searchFieldView
-        // A newly copied matching item arrives while the query is active.
         controller.updateSnapshot(snapshot([("1", "alpha"), ("2", "beta"), ("3", "beta two")]))
 
         #expect(controller.dynamicItems.map(\.title) == ["beta", "beta two"])
@@ -347,19 +367,17 @@ struct HistoryMenuSessionControllerTests {
 
     @Test
     func deletedResultDisappearsThenClearingShowsUpdatedHistory() {
-        let (controller, _, debounce) = makeController()
+        let (controller, recorders) = makeController()
         let menu = install(controller, snapshot: snapshot([("1", "alpha"), ("2", "beta")]))
         controller.menuWillOpen(menu)
         type(controller, "beta")
-        debounce.firePending()
+        recorders.debounce.firePending()
         #expect(controller.dynamicItems.map(\.title) == ["beta"])
 
-        // "beta" is deleted while the query is active.
         controller.updateSnapshot(snapshot([("1", "alpha")]))
         #expect(controller.dynamicItems.count == 1)
         #expect(controller.dynamicItems[0].title == controller.noMatchesLabel)
 
-        // Clearing then shows the updated History list.
         type(controller, "")
         #expect(controller.sectionLabelItem.title == controller.historyLabel)
         #expect(controller.dynamicItems.map(\.title) == ["alpha"])
@@ -367,21 +385,20 @@ struct HistoryMenuSessionControllerTests {
 
     @Test
     func preferenceChangeReappliesCurrentQueryWithNewPresentation() {
-        let (controller, _, debounce) = makeController()
+        let (controller, recorders) = makeController()
         let menu = install(controller, snapshot: snapshot([("1", "alpha"), ("2", "beta")], marked: false))
         controller.menuWillOpen(menu)
         type(controller, "beta")
-        debounce.firePending()
+        recorders.debounce.firePending()
         #expect(controller.dynamicItems.map(\.title) == ["beta"])
 
-        // Numbering preference turns on; the active query is reapplied with it.
         controller.updateSnapshot(snapshot([("1", "alpha"), ("2", "beta")], marked: true))
         #expect(controller.dynamicItems.map(\.title) == ["1. beta"])
     }
 
     @Test
     func menuLifecycleHooksFire() {
-        let (controller, _, _) = makeController()
+        let (controller, _) = makeController()
         var willOpen = 0
         var didClose = 0
         controller.onMenuWillOpen = { _ in willOpen += 1 }
@@ -396,28 +413,29 @@ struct HistoryMenuSessionControllerTests {
 
     @Test
     func clearForProtectedStateClearsQueryDocumentsAndResults() {
-        let (controller, _, debounce) = makeController()
+        let (controller, recorders) = makeController()
         let menu = install(controller, snapshot: snapshot([("1", "alpha"), ("2", "beta")]))
         controller.menuWillOpen(menu)
         type(controller, "beta")
-        debounce.firePending()
+        recorders.debounce.firePending()
         #expect(controller.dynamicItems.map(\.title) == ["beta"])
 
-        // A lock transition clears query/field/pending work...
         controller.clearForProtectedState()
         #expect(controller.query.isEmpty)
         #expect(controller.searchFieldView.query.isEmpty)
 
-        // ...and the owner assigns an empty snapshot, dropping all documents.
         controller.updateSnapshot(snapshot([]))
         #expect(controller.dynamicItems.isEmpty)
         #expect(controller.snapshot?.documentsByID.isEmpty == true)
     }
+}
 
-    // MARK: - Milestone 5: localization / accessibility
+// MARK: - Localization / accessibility (Milestone 5)
+
+extension HistoryMenuSessionControllerTests {
     @Test
     func localizedSectionLabelsAreDistinctAndNonEmpty() {
-        let (controller, _, _) = makeController()
+        let (controller, _) = makeController()
         #expect(!controller.historyLabel.isEmpty)
         #expect(!controller.searchResultsLabel.isEmpty)
         #expect(!controller.noMatchesLabel.isEmpty)
@@ -427,7 +445,7 @@ struct HistoryMenuSessionControllerTests {
 
     @Test
     func searchFieldReportsNoMarkedTextByDefault() {
-        let (controller, _, _) = makeController()
+        let (controller, _) = makeController()
         #expect(!controller.searchFieldView.hasMarkedText)
     }
 }

@@ -1,6 +1,7 @@
 # Search History Technical Plan
 
-**Document status:** In implementation
+**Document status:** Implementation complete (automated); pending human QA sign-off
+and `LockManager` lock-transition wiring — see Milestone 6 and Milestone 4.
 
 **Last reviewed:** 2026-07-12
 
@@ -25,6 +26,9 @@ hook the not-yet-committed `LockManager` once that lands.
 - **Milestone 4:** ✅ Complete on base; lock-transition wiring deferred to the
   `LockManager` merge (recorded deviation).
 - **Milestone 5:** ✅ Complete (localization + accessibility); manual QA in M6.
+- **Milestone 6:** ✅ Automated gates green (180/180 serialized; SwiftLint clean;
+  `git diff --check` clean). Manual QA checklist authored for the reviewer; a
+  pre-existing parallel-test race in the encryption suites is documented.
 - **Milestone 5:** ⬜ Not started.
 - **Milestone 6:** ⬜ Not started.
 
@@ -763,6 +767,26 @@ menu configurations and input methods.
 
 ### Milestone 6 — End-to-end release gate
 
+**Status:** ✅ Automated gates green; human-only end-to-end/perf/privacy/soak
+items are captured in the manual QA checklist below for the reviewer to run.
+
+**Automated results (Xcode 26.5, Apple Silicon):** the full suite passes —
+**180 tests in 24 suites, all passing** — when run serialized
+(`-parallel-testing-enabled NO`). SwiftLint (SwiftPM build-tool plugin) reports
+**no warnings on any search file**, and `git diff <base>..HEAD --check` is clean.
+
+**PRE-EXISTING ISSUE (not introduced by search):** under the *default parallel*
+test execution, the encryption suites `EncryptedHistoryRepositoryTests` and
+`HistorySecurityCoordinatorTests` flake, because they mutate the process-global
+`HistorySecurityBootstrap.startupState` and share the `defaultDatabase`
+dependency while `bootstrapDatabase()` (called by many suites) resets that global
+to `.plaintext` mid-test — flipping `allowsHistoryServices()` off and making
+`CryptoService`/`fetchHistory` return nil. This reproduces with *only those two
+encryption suites* selected and **no search code involved**, and disappears when
+tests run serialized. Recommended fix (owned by the encryption feature): give
+those suites `.serialized` at the run scope or inject an isolated security state
+rather than a global. Search adds no global mutable state.
+
 **Objective:** Verify the complete feature and guard against focus, paste,
 performance, and privacy regressions.
 
@@ -776,32 +800,61 @@ performance, and privacy regressions.
 
 **Acceptance tests:**
 
-- [ ] Automated: `xcrun xcodebuild CODE_SIGN_IDENTITY=- CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO -scheme Clipy -project Clipy.xcodeproj -derivedDataPath /private/tmp/clipy-derived -skipPackagePluginValidation -skipMacroValidation test` passes.
-- [ ] Automated: SwiftLint and `git diff --check` pass with no new warnings.
-- [ ] End to end: status click, main hotkey, and history hotkey each focus empty
-      search; text filters; cancel restores History; result selection pastes to
-      the application that was active before opening Clipy.
-- [ ] End to end: rapid query changes plus concurrent clipboard capture, OCR,
-      delete-after-paste, clear, prune, and preference changes never crash or
-      show stale results.
-- [ ] End to end: main menu snippets and commands and snippet-only hotkeys retain
-      existing behavior.
-- [ ] Performance: menu opening and first focus remain subjectively immediate at
-      30, 1,000, and 10,000 histories; query latency meets the recorded Milestone
-      1 target without main-thread stalls.
-- [ ] Memory: repeated open/type/clear/close cycles do not retain menus, field
-      editors, snapshots, debounce tasks, or normalized query text.
-- [ ] Privacy: query text appears in neither SQLite/WAL/SHM files, UserDefaults,
-      unified logs emitted by Clipy, Firebase events, nor crash breadcrumbs.
-- [ ] Protected mode: locked and key-unavailable states reveal no prior titles,
-      OCR, result counts, queries, thumbnails, or tooltips.
-- [ ] Soak: 500 automated or scripted open/type/clear/close cycles complete with
-      stable memory and no lost focus or unexpected activation.
+- [x] Automated: full `xcodebuild … test` passes (serialized: 180/180). See the
+      pre-existing parallel-execution note above.
+- [x] Automated: SwiftLint reports no new warnings on search files and
+      `git diff --check` is clean.
+- [ ] End to end (pending human QA): status click, main hotkey, and history
+      hotkey each focus empty search; text filters; cancel restores History;
+      selection pastes to the previously active app.
+- [ ] End to end (pending human QA): rapid query changes + concurrent capture,
+      OCR, delete-after-paste, clear, prune, and preference changes never crash
+      or show stale results.
+- [ ] End to end (pending human QA): main-menu snippets/commands and snippet-only
+      hotkeys retain existing behavior.
+- [ ] Performance (pending human QA): menu open + first focus feel immediate at
+      30/1,000/10,000 histories; query latency meets the Milestone 1 baseline
+      without main-thread stalls.
+- [ ] Memory (pending human QA): repeated open/type/clear/close cycles retain no
+      menus, field editors, snapshots, debounce tasks, or normalized query text.
+- [ ] Privacy (pending human QA): query text appears in no SQLite/WAL/SHM file,
+      UserDefaults, Clipy unified log, Firebase event, or crash breadcrumb.
+- [ ] Protected mode (pending human QA, blocked on `LockManager` merge): locked /
+      key-unavailable states reveal no prior titles, OCR, counts, queries,
+      thumbnails, or tooltips.
+- [ ] Soak (pending human QA): 500 open/type/clear/close cycles with stable
+      memory and no lost focus or unexpected activation.
+
+**Manual QA checklist (attach to the PR):**
+
+1. Open the main menu from the status item, the main hotkey, and the history
+   hotkey. Each time the search field is empty, focused, and immediately typable
+   without a click; the hotkey's own key does not leak into the field.
+2. Clipy does not become frontmost; after selecting a result, paste lands in the
+   app that was active before opening Clipy.
+3. Type to filter (title, OCR text, and `(Image)`/`(PDF)`/`(Files)` prefixes);
+   clearing / cancel button restores the full History instantly.
+4. Return activates the first result; Down-arrow moves into the list; digits edit
+   the query rather than firing numeric shortcuts; Escape closes the menu.
+5. Command-A/C/X/V, Delete, arrows, and a marked-text IME work while tracking;
+   IME composition never dismisses the menu or destructively re-renders.
+6. Copy a new matching item / delete a shown result while the menu is open — the
+   list updates in place without losing focus or the field editor.
+7. Toggle numbering, thumbnails, grouping, and history-limit preferences; the
+   active query is reapplied with the new presentation.
+8. Snippets and the footer (Clear History / Edit Snippets / Preferences / Quit)
+   remain present and behave as before; snippet-only menus still highlight.
+9. VoiceOver: the field reports role Search Field with a localized label; a
+   query announces a stable result count / no-result state.
+10. Repeat across de/it/ja/pt-BR/zh-Hans without clipped field/label/no-result
+    rows, and across empty history / no snippets / status-item-hidden setups.
 
 **Final release gate:** No known entry point opens a history-bearing menu without
 focused search, no query can produce stale/unauthorized results, no search text
 is persisted, and selecting a result still pastes into the user's prior
-application.
+application. Automated coverage confirms the model/menu invariants; the manual
+checklist above must be signed off (and lock-transition wiring completed on the
+`LockManager` merge) before shipping.
 
 ## 9. Risk register and mitigations
 
