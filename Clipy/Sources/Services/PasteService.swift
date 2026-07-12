@@ -61,6 +61,11 @@ final class PasteService {
 // MARK: - Copy
 extension PasteService {
     func paste(id: PasteboardHistory.ID, content: PasteboardContent) {
+        guard HistorySecurityBootstrap.startupState.allowsHistoryServices else {
+            NSSound.beep()
+            return
+        }
+
         // Handling modifier actions
         let isPastePlainText = self.isPastePlainText
         let isPasteAndDeleteHistory = self.isPasteAndDeleteHistory

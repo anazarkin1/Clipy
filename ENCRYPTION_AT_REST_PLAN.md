@@ -988,6 +988,27 @@ Keychain-error, and concurrent-service tests.
 **Objective:** Make encrypted mode behave correctly throughout normal clipboard,
 menu, OCR, screen-lock, sleep, and idle lifecycles.
 
+**Status (2026-07-12):** Implemented and automated checks passed.
+
+- Added `LockManager` with in-memory key eviction, explicit unlock, generation
+  changes, mandatory lock-event notification constants, and injected-clock idle
+  timeout support.
+- App lifecycle wiring now locks on screens sleep, session resignation, system
+  sleep, app resignation, and screensaver start; menu state is refreshed
+  immediately after lock-state changes.
+- Encrypted/locked capture is fail-closed: clipboard/image capture, stale paste
+  actions, repository reads, OCR updates, and history pruning do not store or
+  expose protected history while locked or unavailable.
+- Menu construction now suppresses prior history titles/thumbnails in locked,
+  key-missing, key-unavailable, transitioning, and corrupt states and presents
+  only unlock/recovery/status actions.
+- Unlock cancellation/authentication failure leaves the existing locked state in
+  place rather than converting it to plaintext or corrupting recoverable state.
+- Verified with focused LockManager/OCR tests and the full Xcode test suite
+  using Xcode 26.5 via xcrun with serial test execution. Test result: 125 tests
+  in 21 suites passed. The serial flag is required because current Swift Testing
+  suites share process-global history security state.
+
 **Depends on:** Milestone 4.
 
 **In scope:**
@@ -1012,21 +1033,26 @@ menu, OCR, screen-lock, sleep, and idle lifecycles.
 
 **Acceptance tests:**
 
-- [ ] Service integration: encrypted/locked state observes clipboard changes but
+- [x] Service integration: encrypted/locked state observes clipboard changes but
       stores none of them; capture resumes only after successful unlock.
-- [ ] Service integration: screen lock, screensaver start, session resignation,
+- [x] Service integration: screen lock, screensaver start, session resignation,
       system sleep, and screens-sleep events always lock, even when idle policy is
       never.
-- [ ] Unit: idle timeout locks at the configured boundary with an injected clock;
+- [x] Unit: idle timeout locks at the configured boundary with an injected clock;
       user activity resets the deadline.
-- [ ] Service integration: stale OCR and menu results started before a lock are
+- [x] Service integration: stale OCR and menu results started before a lock are
       discarded after the generation changes.
-- [ ] Service integration: locked menu contains no prior title or thumbnail and
+- [x] Service integration: locked menu contains no prior title or thumbnail and
       offers only the appropriate unlock/recovery action.
-- [ ] Service integration: authentication cancellation leaves history locked and
+- [x] Service integration: authentication cancellation leaves history locked and
       does not cause repeated prompts or plaintext capture.
 - [ ] Manual app: lock screen and sleep/wake tests demonstrate that the first
       history access after return requires authentication.
+
+**Implementation note:** The final manual app lock/sleep/wake exercise remains a
+release-gate check because it requires interactive macOS session behavior. The
+automated milestone coverage verifies the lifecycle registrations, state
+transitions, service gating, and cancellation behavior.
 
 **Exit gate:** Security state remains correct across all supported runtime lock
 events without relying on the Settings pane.

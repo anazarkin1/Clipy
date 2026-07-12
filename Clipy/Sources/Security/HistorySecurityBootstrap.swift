@@ -82,7 +82,9 @@ struct HistorySecurityBootstrap {
                 return .keyMissing(keyID: keyID)
             case .unavailable, .interactionNotAllowed:
                 return .keyUnavailable(keyID: keyID)
-            case .canceled, .authenticationFailed, .unexpected:
+            case .canceled, .authenticationFailed:
+                return state
+            case .unexpected:
                 return .corrupt("Unable to unlock history encryption key")
             }
         } catch {

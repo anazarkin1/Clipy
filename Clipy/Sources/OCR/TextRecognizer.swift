@@ -25,11 +25,15 @@ final class TextRecognizer: TextRecognizerProtocol {
     private let queue = DispatchQueue(label: "com.clipy-app.Clipy.TextRecognizer", qos: .utility)
 
     func recognizeTextIfNeeded(id: PasteboardHistory.ID) {
+        let generation = pasteboardHistoryRepository.usesEncryptedHistoryStorage ? LockManager.generation : nil
         queue.async { [weak self] in
             guard let self else { return }
             guard let history = self.pasteboardHistoryRepository.fetchHistory(id: id), history.ocrText == nil else { return }
             guard let imageData = self.pasteboardHistoryRepository.fetchContent(id: id)?.imageData else { return }
             let text = recognizedText(in: imageData) ?? ""
+            if let generation {
+                guard LockManager.generation == generation else { return }
+            }
             pasteboardHistoryRepository.updateOCRText(id: id, ocrText: String(text.prefix(10000)))
         }
     }

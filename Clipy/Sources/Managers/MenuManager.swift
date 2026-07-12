@@ -110,6 +110,10 @@ private extension MenuManager {
             .receive(on: mainQueue)
             .sink { [weak self] _ in self?.createClipMenu() }
             .store(in: &cancellables)
+        notificationCenter.publisher(for: LockManager.stateDidChangeNotification)
+            .receive(on: mainQueue)
+            .sink { [weak self] _ in self?.createClipMenu() }
+            .store(in: &cancellables)
         snippetRepository.observeFolderDetails()
             .receive(on: mainQueue)
             .sink { [weak self] folderDetails in
@@ -245,6 +249,10 @@ private extension MenuManager {
         labelItem.isEnabled = false
         menu.addItem(labelItem)
 
+        if addLockedHistoryItemIfNeeded(menu) {
+            return
+        }
+
         // History
         let firstIndex = firstIndexOfMenuItems()
         var listNumber = firstIndex
@@ -288,6 +296,35 @@ private extension MenuManager {
                 subMenuCount += placeInsideFolder
                 subMenuIndex += 1
             }
+        }
+    }
+
+    func addLockedHistoryItemIfNeeded(_ menu: NSMenu) -> Bool {
+        switch HistorySecurityBootstrap.startupState {
+        case .locked:
+            menu.addItem(NSMenuItem(title: String(localized: "Unlock History"), action: #selector(AppDelegate.unlockHistory)))
+            return true
+        case .keyMissing:
+            let item = NSMenuItem(title: String(localized: "History Key Missing"), action: #selector(AppDelegate.clearInaccessibleHistory))
+            menu.addItem(item)
+            return true
+        case .keyUnavailable:
+            let item = NSMenuItem(title: String(localized: "History Key Unavailable"), action: nil)
+            item.isEnabled = false
+            menu.addItem(item)
+            return true
+        case .transitioning:
+            let item = NSMenuItem(title: String(localized: "History Maintenance In Progress"), action: nil)
+            item.isEnabled = false
+            menu.addItem(item)
+            return true
+        case .corrupt:
+            let item = NSMenuItem(title: String(localized: "History Security Error"), action: nil)
+            item.isEnabled = false
+            menu.addItem(item)
+            return true
+        case .plaintext, .blockedByOrphanKeys, .unlocked:
+            return false
         }
     }
 

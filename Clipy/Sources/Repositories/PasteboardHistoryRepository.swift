@@ -16,6 +16,8 @@ import Dependencies
 import SQLiteData
 
 protocol PasteboardHistoryRepositoryProtocol {
+    var usesEncryptedHistoryStorage: Bool { get }
+
     func observeHistories() -> AnyPublisher<[PasteboardHistory], Never>
     func observeHistoryChanges() -> AnyPublisher<Void, Never>
     func hasHistories() -> Bool
@@ -43,6 +45,10 @@ final class PasteboardHistoryRepository: PasteboardHistoryRepositoryProtocol {
 
     @FetchAll(PasteboardHistory.select { $0.id }.order { $0.updateAt.desc() })
     private var historyIDs
+
+    var usesEncryptedHistoryStorage: Bool {
+        currentMetadataMode() == .encrypted
+    }
 
     func observeHistories() -> AnyPublisher<[PasteboardHistory], Never> {
         _historyIDs.publisher

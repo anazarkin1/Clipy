@@ -24,6 +24,7 @@ class AppDelegate: NSObject, NSMenuItemValidation {
     // MARK: - Properties
     private(set) var updaterController: SPUStandardUpdaterController?
     private let screenshotObserver = ScreenShotObserver()
+    private let lockManager = LockManager()
     private let disposeBag = DisposeBag()
     private let historyPruningScheduler = SerialDispatchQueueScheduler(qos: .utility)
 
@@ -81,6 +82,14 @@ class AppDelegate: NSObject, NSMenuItemValidation {
         }
 
         AppEnvironment.current.clipService.clearAll()
+    }
+
+    @objc func unlockHistory() {
+        _ = lockManager.unlock()
+    }
+
+    @objc func clearInaccessibleHistory() {
+        _ = try? HistorySecurityCoordinator().clearInaccessibleHistory()
     }
 
     @objc func selectClipMenuItem(_ sender: NSMenuItem) {
@@ -165,22 +174,21 @@ extension AppDelegate: NSApplicationDelegate {
         AppEnvironment.current.excludeAppService.startMonitoring()
         AppEnvironment.current.hotKeyService.setupDefaultHotKeys()
 
-        if HistorySecurityBootstrap.startupState.allowsHistoryServices {
-            AppEnvironment.current.clipService.startMonitoring()
+        AppEnvironment.current.clipService.startMonitoring()
 
-            // Managers
-            AppEnvironment.current.menuManager.setup()
-            // Screenshot
-            screenshotObserver.delegate = self
+        // Managers
+        AppEnvironment.current.menuManager.setup()
+        // Screenshot
+        screenshotObserver.delegate = self
 
-            // Clean histories every 30 minutes
-            Observable<Int>.interval(.seconds(60 * 30), scheduler: historyPruningScheduler)
-                .subscribe(onNext: { [weak self] _ in
-                    let maxHistorySize = AppEnvironment.current.defaults.integer(forKey: Constants.UserDefaults.maxHistorySize)
-                    self?.pasteboardHistoryRepository.deleteOverflowingHistories(maxHistorySize: maxHistorySize)
-                })
-                .disposed(by: disposeBag)
-        }
+        // Clean histories every 30 minutes
+        Observable<Int>.interval(.seconds(60 * 30), scheduler: historyPruningScheduler)
+            .subscribe(onNext: { [weak self] _ in
+                guard HistorySecurityBootstrap.startupState.allowsHistoryServices else { return }
+                let maxHistorySize = AppEnvironment.current.defaults.integer(forKey: Constants.UserDefaults.maxHistorySize)
+                self?.pasteboardHistoryRepository.deleteOverflowingHistories(maxHistorySize: maxHistorySize)
+            })
+            .disposed(by: disposeBag)
     }
 
 }
@@ -217,6 +225,32 @@ private extension AppDelegate {
                 self?.screenshotObserver.start()
             })
             .disposed(by: disposeBag)
+        let workspaceNotificationCenter = NSWorkspace.shared.notificationCenter
+        LockManager.mandatoryWorkspaceLockNotifications.forEach { name in
+            workspaceNotificationCenter.addObserver(
+                forName: name,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                _ = self?.lockManager.lockNow()
+            }
+        }
+        LockManager.mandatoryApplicationLockNotifications.forEach { name in
+            NotificationCenter.default.addObserver(
+                forName: name,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                _ = self?.lockManager.lockNow()
+            }
+        }
+        DistributedNotificationCenter.default().addObserver(
+            forName: LockManager.screenSaverDidStartNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            _ = self?.lockManager.lockNow()
+        }
     }
 }
 
