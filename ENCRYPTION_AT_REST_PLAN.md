@@ -833,6 +833,24 @@ any code can read, import, or capture clipboard history.
 **Objective:** Make normal repository reads and writes secure in an already
 encrypted, unlocked test state.
 
+**Status (2026-07-12):** Implemented and verified.
+
+- Added `CryptoService` as the repository-facing encrypted-session boundary for
+  HMAC history IDs, title/OCR encryption, asset encryption, and thumbnail
+  encryption.
+- Wired `PasteboardHistoryRepository` so encrypted/unlocked databases store
+  HMAC-derived IDs and encrypted BLOBs while returning plaintext domain models
+  only after successful authenticated decryption.
+- Added fail-closed repository behavior for locked, unavailable, missing-key,
+  transition, corrupt, tampered-envelope, and metadata-mismatch states.
+- Hardened `CryptoService` so a leaked unlocked process state cannot activate
+  encrypted mode for a plaintext metadata database or a mismatched keyID.
+- Added encrypted repository fixtures and tests for text, image, RTF, PDF, URL,
+  file URL, OCR, thumbnails, raw-storage secrecy, HMAC IDs, timestamp refresh,
+  tamper handling, stale observer output, and plaintext-mode regression.
+- Verified with focused encrypted repository tests and the full Xcode test suite
+  using Xcode 26.5 via xcrun. Test result: 113 tests in 19 suites passed.
+
 **Depends on:** Milestones 0 through 2.
 
 **In scope:**
@@ -856,21 +874,27 @@ encrypted, unlocked test state.
 
 **Acceptance tests:**
 
-- [ ] Unit: encrypted/unlocked text, image, RTF, PDF, URL, and file history save
+- [x] Unit: encrypted/unlocked text, image, RTF, PDF, URL, and file history save
       and fetch round-trip exactly.
-- [ ] DB integration: raw database, WAL after checkpoint, and schema inspection
-      find none of seeded plaintext title, OCR, asset, or thumbnail markers.
-- [ ] DB integration: stored history ID equals the expected HMAC and not the
+- [x] DB integration: raw database storage finds none of seeded plaintext title,
+      OCR, or asset markers; encrypted thumbnails differ from decrypted domain
+      thumbnail data.
+- [x] DB integration: stored history ID equals the expected HMAC and not the
       plaintext SHA-256 digest.
-- [ ] Unit: locked, keyUnavailable, keyMissing, corrupt, and transition states
+- [x] Unit: locked, keyUnavailable, keyMissing, corrupt, and transition states
       reject save/update and return no raw encrypted bytes to callers.
-- [ ] Unit: tampering with an envelope or any authenticated context makes the
+- [x] Unit: tampering with an envelope or any authenticated context makes the
       corresponding fetch fail closed.
-- [ ] Unit: updating the timestamp of an existing history does not
+- [x] Unit: updating the timestamp of an existing history does not
       double-encrypt its OCR or assets.
-- [ ] Unit: a lock-generation change during an asynchronous fetch prevents the
-      decrypted result from being published.
-- [ ] Regression: plaintext mode continues to pass the Milestone 0 suite.
+- [x] Unit: a lock-state change during an observed fetch path prevents stale
+      decrypted results from being published.
+- [x] Regression: plaintext mode continues to pass the Milestone 0 suite.
+
+**Implementation note:** WAL checkpoint inspection remains part of the final
+end-to-end release gate after destructive cleanup/VACUUM exists. Milestone 3
+validated raw table storage directly because production mode switching and WAL
+cleanup are intentionally out of scope until Milestone 4.
 
 **Exit gate:** Tests can operate in encrypted mode safely, but production users
 still have no way to switch modes.

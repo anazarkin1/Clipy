@@ -45,7 +45,14 @@ final class PasteboardHistoryRepository: PasteboardHistoryRepositoryProtocol {
     private var historyIDs
 
     func observeHistories() -> AnyPublisher<[PasteboardHistory], Never> {
-        _histories.publisher.eraseToAnyPublisher()
+        _historyIDs.publisher
+            .map { [weak self] _ in
+                guard let self else { return [] }
+                return self
+                    .fetchHistoryDetails(sortsByCreatedAt: false, includesThumbnailAsset: false, limit: Int.max)
+                    .map(\.history)
+            }
+            .eraseToAnyPublisher()
     }
 
     func observeHistoryChanges() -> AnyPublisher<Void, Never> {
@@ -53,7 +60,7 @@ final class PasteboardHistoryRepository: PasteboardHistoryRepositoryProtocol {
     }
 
     func hasHistories() -> Bool {
-        withErrorReporting {
+        return withErrorReporting {
             try database.read { database in
                 try PasteboardHistory
                     .select { $0.id }
@@ -68,7 +75,8 @@ final class PasteboardHistoryRepository: PasteboardHistoryRepositoryProtocol {
         includesThumbnailAsset: Bool,
         limit: Int
     ) -> [PasteboardHistoryDetail] {
-        withErrorReporting {
+        guard HistorySecurityBootstrap.startupState.allowsHistoryServices else { return [] }
+        return withErrorReporting {
             try database.read { database in
                 let histories = PasteboardHistory
                     .all
@@ -81,47 +89,82 @@ final class PasteboardHistoryRepository: PasteboardHistoryRepositoryProtocol {
                     }
                     .limit(limit)
 
+                let cryptoService = try CryptoService(database: database)
+
                 guard includesThumbnailAsset else {
-                    return try histories
-                        .fetchAll(database)
-                        .map { PasteboardHistoryDetail(history: $0, thumbnailAsset: nil) }
+                    let storedHistories = try histories.fetchAll(database)
+                    return storedHistories.compactMap {
+                        decryptedHistoryDetail(
+                            history: $0,
+                            thumbnailAsset: nil,
+                            cryptoService: cryptoService
+                        )
+                    }
                 }
 
-                return try histories
+                let storedDetails = try histories
                     .leftJoin(PasteboardHistoryThumbnailAsset.all) { $0.id.eq($1.pasteboardHistoryID) }
                     .select { PasteboardHistoryDetail.Columns(history: $0, thumbnailAsset: $1) }
                     .fetchAll(database)
+                return storedDetails.compactMap {
+                    decryptedHistoryDetail(
+                        history: $0.history,
+                        thumbnailAsset: $0.thumbnailAsset,
+                        cryptoService: cryptoService
+                    )
+                }
             }
         } ?? []
     }
 
     func fetchHistory(id: PasteboardHistory.ID) -> PasteboardHistory? {
-        withErrorReporting {
+        guard HistorySecurityBootstrap.startupState.allowsHistoryServices else { return nil }
+        return withErrorReporting {
             try database.read { database in
-                try PasteboardHistory.find(id).fetchOne(database)
+                guard let history = try PasteboardHistory.find(id).fetchOne(database) else { return nil }
+                do {
+                    return try decryptedHistory(history, cryptoService: try CryptoService(database: database))
+                } catch {
+                    return nil
+                }
             }
         }
     }
 
     func fetchContent(id: PasteboardHistory.ID) -> PasteboardContent? {
-        withErrorReporting {
+        guard HistorySecurityBootstrap.startupState.allowsHistoryServices else { return nil }
+        return withErrorReporting {
             try database.read { database in
                 let assets = try PasteboardHistoryAsset
                     .where { $0.pasteboardHistoryID.eq(id) }
                     .order(by: \.index)
                     .fetchAll(database)
-                return PasteboardContent(
-                    assets: assets.map {
-                        PasteboardContent.Asset(type: $0.pasteboardType, data: $0.data)
-                    }
-                )
+                let cryptoService = try CryptoService(database: database)
+                do {
+                    return PasteboardContent(
+                        assets: try assets.map {
+                            PasteboardContent.Asset(
+                                type: $0.pasteboardType,
+                                data: try cryptoService?.openAsset($0) ?? $0.data
+                            )
+                        }
+                    )
+                } catch {
+                    return nil
+                }
             }
         }
     }
 
     func save(id: PasteboardHistory.ID, content: PasteboardContent, updateAt: Int) {
+        guard HistorySecurityBootstrap.startupState.allowsHistoryServices else { return }
         withErrorReporting {
             try database.write { database in
+                if let cryptoService = try CryptoService(database: database) {
+                    try saveEncrypted(content: content, updateAt: updateAt, cryptoService: cryptoService, database: database)
+                    return
+                }
+
                 let existingHistory = try PasteboardHistory
                     .find(id)
                     .fetchOne(database)
@@ -158,11 +201,14 @@ final class PasteboardHistoryRepository: PasteboardHistoryRepositoryProtocol {
     }
 
     func updateOCRText(id: PasteboardHistory.ID, ocrText: String) {
+        guard HistorySecurityBootstrap.startupState.allowsHistoryServices else { return }
         withErrorReporting {
             try database.write { database in
+                let cryptoService = try CryptoService(database: database)
+                let ocrTextData = try cryptoService?.sealHistoryOCR(Data(ocrText.utf8), historyID: id) ?? Data(ocrText.utf8)
                 try PasteboardHistory
                     .find(id)
-                    .update { $0.ocrTextData = #bind(Data(ocrText.utf8)) }
+                    .update { $0.ocrTextData = #bind(ocrTextData) }
                     .execute(database)
             }
         }
@@ -210,6 +256,105 @@ final class PasteboardHistoryRepository: PasteboardHistoryRepositoryProtocol {
 }
 
 private extension PasteboardHistoryRepository {
+    func saveEncrypted(
+        content: PasteboardContent,
+        updateAt: Int,
+        cryptoService: CryptoService,
+        database: Database
+    ) throws {
+        let id = cryptoService.historyID(for: content)
+        let existingHistory = try PasteboardHistory
+            .find(id)
+            .fetchOne(database)
+        let ocrTextData = existingHistory?.ocrTextData
+        let titleData = try cryptoService.sealHistoryTitle(Data(String(content.stringValue.prefix(10000)).utf8), historyID: id)
+        let history = PasteboardHistory(
+            id: id,
+            titleData: titleData,
+            ocrTextData: ocrTextData,
+            pasteboardTypes: content.types,
+            createdAt: existingHistory?.createdAt ?? updateAt,
+            updateAt: updateAt,
+            deviceID: CPYUtilities.deviceID
+        )
+        try PasteboardHistory
+            .upsert { history }
+            .execute(database)
+
+        guard existingHistory == nil else { return }
+
+        let assets = try content.assets.enumerated().map { index, asset in
+            let storedAsset = PasteboardHistoryAsset(
+                id: .init(UUID()),
+                pasteboardHistoryID: id,
+                index: index,
+                pasteboardType: asset.type,
+                data: asset.data
+            )
+            return PasteboardHistoryAsset(
+                id: storedAsset.id,
+                pasteboardHistoryID: storedAsset.pasteboardHistoryID,
+                index: storedAsset.index,
+                pasteboardType: storedAsset.pasteboardType,
+                data: try cryptoService.sealAsset(storedAsset.data, asset: storedAsset)
+            )
+        }
+        try PasteboardHistoryAsset.insert { assets }.execute(database)
+
+        if let thumbnailAsset = thumbnailAsset(from: content, id: id) {
+            let encryptedThumbnailAsset = PasteboardHistoryThumbnailAsset(
+                pasteboardHistoryID: thumbnailAsset.pasteboardHistoryID,
+                kind: thumbnailAsset.kind,
+                data: try cryptoService.sealThumbnail(thumbnailAsset)
+            )
+            try PasteboardHistoryThumbnailAsset.insert { encryptedThumbnailAsset }.execute(database)
+        }
+    }
+
+    func decryptedHistoryDetail(
+        history: PasteboardHistory,
+        thumbnailAsset: PasteboardHistoryThumbnailAsset?,
+        cryptoService: CryptoService?
+    ) -> PasteboardHistoryDetail? {
+        do {
+            let history = try decryptedHistory(history, cryptoService: cryptoService)
+            let thumbnailAsset = try decryptedThumbnailAsset(thumbnailAsset, cryptoService: cryptoService)
+            return PasteboardHistoryDetail(history: history, thumbnailAsset: thumbnailAsset)
+        } catch {
+            return nil
+        }
+    }
+
+    func decryptedHistory(
+        _ history: PasteboardHistory,
+        cryptoService: CryptoService?
+    ) throws -> PasteboardHistory {
+        guard let cryptoService else { return history }
+        return PasteboardHistory(
+            id: history.id,
+            titleData: try cryptoService.openHistoryTitle(history.titleData, historyID: history.id),
+            ocrTextData: try history.ocrTextData.map {
+                try cryptoService.openHistoryOCR($0, historyID: history.id)
+            },
+            pasteboardTypes: history.pasteboardTypes,
+            createdAt: history.createdAt,
+            updateAt: history.updateAt,
+            deviceID: history.deviceID
+        )
+    }
+
+    func decryptedThumbnailAsset(
+        _ thumbnailAsset: PasteboardHistoryThumbnailAsset?,
+        cryptoService: CryptoService?
+    ) throws -> PasteboardHistoryThumbnailAsset? {
+        guard let thumbnailAsset, let cryptoService else { return thumbnailAsset }
+        return PasteboardHistoryThumbnailAsset(
+            pasteboardHistoryID: thumbnailAsset.pasteboardHistoryID,
+            kind: thumbnailAsset.kind,
+            data: try cryptoService.openThumbnail(thumbnailAsset)
+        )
+    }
+
     func thumbnailAsset(from content: PasteboardContent, id: PasteboardHistory.ID) -> PasteboardHistoryThumbnailAsset? {
         var asset: PasteboardHistoryThumbnailAsset?
         if let thumbnailImage = content.thumbnailImage, let thumbnailData = thumbnailImage.tiffRepresentation {

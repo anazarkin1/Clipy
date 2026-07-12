@@ -73,6 +73,9 @@ extension DependencyValues {
         try migrator.migrate(database)
 
         defaultDatabase = database
+        if context == .test {
+            HistorySecurityBootstrap.startupState = .plaintext
+        }
         if #available(macOS 14, *), SQLiteDataDatabase.isCloudKitEnabled {
             defaultSyncEngine = try SyncEngine(
                 for: database,

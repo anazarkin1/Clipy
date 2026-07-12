@@ -24,6 +24,9 @@ struct PasteboardContent: Equatable {
     let types: [NSPasteboard.PasteboardType]
     let assets: [Asset]
     let hash: String
+    var canonicalData: Data {
+        Self.canonicalData(for: assets)
+    }
 
     var isOnlyStringType: Bool {
         types == [.string] || types == [.deprecatedString]
@@ -71,14 +74,18 @@ struct PasteboardContent: Equatable {
         guard !assets.isEmpty else { return nil }
         self.types = assets.map(\.type)
         self.assets = assets
+        self.hash = SHA256.hash(data: Self.canonicalData(for: assets))
+            .map { String(format: "%02x", $0) }
+            .joined()
+    }
+
+    private static func canonicalData(for assets: [Asset]) -> Data {
         var data = Data()
         assets.forEach { asset in
             data.append(value: Data(asset.type.rawValue.utf8))
             data.append(value: asset.data)
         }
-        self.hash = SHA256.hash(data: data)
-            .map { String(format: "%02x", $0) }
-            .joined()
+        return data
     }
 
     init?(pasteboard: NSPasteboard, types: [NSPasteboard.PasteboardType]) {

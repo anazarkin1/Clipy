@@ -26,13 +26,14 @@ enum HistoryLockState: Equatable {
     case unlocked(keyID: UUID, keyData: Data)
     case keyMissing(keyID: UUID)
     case keyUnavailable(keyID: UUID?)
+    case transitioning(HistorySecurityMode)
     case corrupt(String)
 
     var allowsHistoryServices: Bool {
         switch self {
         case .plaintext, .unlocked:
             true
-        case .blockedByOrphanKeys, .locked, .keyMissing, .keyUnavailable, .corrupt:
+        case .blockedByOrphanKeys, .locked, .keyMissing, .keyUnavailable, .transitioning, .corrupt:
             false
         }
     }

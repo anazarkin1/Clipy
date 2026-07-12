@@ -53,6 +53,24 @@ struct PasteboardHistory: Identifiable, Equatable {
         self.updateAt = updateAt
         self.deviceID = deviceID
     }
+
+    init(
+        id: ID,
+        titleData: Data,
+        ocrTextData: Data?,
+        pasteboardTypes: [NSPasteboard.PasteboardType],
+        createdAt: Int,
+        updateAt: Int,
+        deviceID: String?
+    ) {
+        self.id = id
+        self.titleData = titleData
+        self.ocrTextData = ocrTextData
+        self.pasteboardTypes = pasteboardTypes
+        self.createdAt = createdAt
+        self.updateAt = updateAt
+        self.deviceID = deviceID
+    }
 }
 
 @Table
