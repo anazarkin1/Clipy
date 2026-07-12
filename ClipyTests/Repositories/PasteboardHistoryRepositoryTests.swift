@@ -63,6 +63,23 @@ struct PasteboardHistoryRepositoryTests {
         )
     }
 
+    @Test(.timeLimit(.minutes(1)))
+    func observeHistoryChangesEmitsWithoutStorageRows() async throws {
+        var changeCount = 0
+        let cancellable = repository.observeHistoryChanges().sink {
+            changeCount += 1
+        }
+        defer { _ = cancellable }
+
+        try await waitUntil { changeCount >= 1 }
+
+        let content = try #require(PasteboardContent("First"))
+        let id = PasteboardHistory.ID(rawValue: content.hash)
+        repository.save(id: id, content: content, updateAt: 1)
+
+        try await waitUntil { changeCount >= 2 }
+    }
+
     @Test
     func saveAndFetchHistory() throws {
         #expect(!repository.hasHistories())

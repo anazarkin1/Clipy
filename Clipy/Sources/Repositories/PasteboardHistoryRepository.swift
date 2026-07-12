@@ -17,6 +17,7 @@ import SQLiteData
 
 protocol PasteboardHistoryRepositoryProtocol {
     func observeHistories() -> AnyPublisher<[PasteboardHistory], Never>
+    func observeHistoryChanges() -> AnyPublisher<Void, Never>
     func hasHistories() -> Bool
     func fetchHistoryDetails(
         sortsByCreatedAt: Bool,
@@ -40,8 +41,15 @@ final class PasteboardHistoryRepository: PasteboardHistoryRepositoryProtocol {
     @FetchAll(PasteboardHistory.all.order { $0.updateAt.desc() })
     private var histories
 
+    @FetchAll(PasteboardHistory.select { $0.id }.order { $0.updateAt.desc() })
+    private var historyIDs
+
     func observeHistories() -> AnyPublisher<[PasteboardHistory], Never> {
         _histories.publisher.eraseToAnyPublisher()
+    }
+
+    func observeHistoryChanges() -> AnyPublisher<Void, Never> {
+        _historyIDs.publisher.map { _ in }.eraseToAnyPublisher()
     }
 
     func hasHistories() -> Bool {
@@ -154,7 +162,7 @@ final class PasteboardHistoryRepository: PasteboardHistoryRepositoryProtocol {
             try database.write { database in
                 try PasteboardHistory
                     .find(id)
-                    .update { $0.ocrText = #bind(ocrText) }
+                    .update { $0.ocrTextData = #bind(Data(ocrText.utf8)) }
                     .execute(database)
             }
         }

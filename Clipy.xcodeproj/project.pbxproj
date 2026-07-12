@@ -54,6 +54,8 @@
 		C5D41A0C2FDB4A0C00EF30FB /* SQLiteDataMigratorTests+V1.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5D41A092FDB4A0900EF30FB /* SQLiteDataMigratorTests+V1.swift */; };
 		C5D41A0D2FDB4A0D00EF30FB /* SQLiteDataMigratorTests+V2.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5D41A0A2FDB4A0A00EF30FB /* SQLiteDataMigratorTests+V2.swift */; };
 		C5D41A0E2FDB4A0E00EF30FB /* SQLiteDataMigratorTests+V3.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5D41A0B2FDB4A0B00EF30FB /* SQLiteDataMigratorTests+V3.swift */; };
+		C5E001012FFFF00100E00001 /* SQLiteDataMigrator+V5.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5E001002FFFF00000E00001 /* SQLiteDataMigrator+V5.swift */; };
+		C5E001032FFFF00300E00003 /* SQLiteDataMigratorTests+V5.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5E001022FFFF00200E00002 /* SQLiteDataMigratorTests+V5.swift */; };
 		C5D76D9E2FBA939E0083839F /* RxCocoa in Frameworks */ = {isa = PBXBuildFile; productRef = C5D76D9D2FBA939E0083839F /* RxCocoa */; };
 		C5D76DA02FBA939E0083839F /* RxSwift in Frameworks */ = {isa = PBXBuildFile; productRef = C5D76D9F2FBA939E0083839F /* RxSwift */; };
 		C5D76DA52FBA98A90083839F /* AEXML in Frameworks */ = {isa = PBXBuildFile; productRef = C5D76DA42FBA98A90083839F /* AEXML */; };
@@ -214,6 +216,8 @@
 		C5D41A092FDB4A0900EF30FB /* SQLiteDataMigratorTests+V1.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SQLiteDataMigratorTests+V1.swift"; sourceTree = "<group>"; };
 		C5D41A0A2FDB4A0A00EF30FB /* SQLiteDataMigratorTests+V2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SQLiteDataMigratorTests+V2.swift"; sourceTree = "<group>"; };
 		C5D41A0B2FDB4A0B00EF30FB /* SQLiteDataMigratorTests+V3.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SQLiteDataMigratorTests+V3.swift"; sourceTree = "<group>"; };
+		C5E001002FFFF00000E00001 /* SQLiteDataMigrator+V5.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SQLiteDataMigrator+V5.swift"; sourceTree = "<group>"; };
+		C5E001022FFFF00200E00002 /* SQLiteDataMigratorTests+V5.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SQLiteDataMigratorTests+V5.swift"; sourceTree = "<group>"; };
 		C5E8EE632FFA260200270F1F /* PasteboardHistoryExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PasteboardHistoryExtensions.swift; sourceTree = "<group>"; };
 		C5E8EE672FFA28D900270F1F /* StringExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StringExtensions.swift; sourceTree = "<group>"; };
 		C5E8EE692FFA2A5000270F1F /* SnippetExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnippetExtensions.swift; sourceTree = "<group>"; };
@@ -470,6 +474,7 @@
 				C5D41A032FDB4A0300EF30FB /* SQLiteDataMigrator+V2.swift */,
 				C5D41A042FDB4A0400EF30FB /* SQLiteDataMigrator+V3.swift */,
 				C5F1AC0230190004AA110002 /* SQLiteDataMigrator+V4.swift */,
+				C5E001002FFFF00000E00001 /* SQLiteDataMigrator+V5.swift */,
 			);
 			path = Migrations;
 			sourceTree = "<group>";
@@ -482,6 +487,7 @@
 				C5D41A0A2FDB4A0A00EF30FB /* SQLiteDataMigratorTests+V2.swift */,
 				C5D41A0B2FDB4A0B00EF30FB /* SQLiteDataMigratorTests+V3.swift */,
 				C5F1AC0430190004AA110004 /* SQLiteDataMigratorTests+V4.swift */,
+				C5E001022FFFF00200E00002 /* SQLiteDataMigratorTests+V5.swift */,
 			);
 			path = Migrations;
 			sourceTree = "<group>";
@@ -997,6 +1003,7 @@
 				C5D41A062FDB4A0600EF30FB /* SQLiteDataMigrator+V2.swift in Sources */,
 				C5D41A072FDB4A0700EF30FB /* SQLiteDataMigrator+V3.swift in Sources */,
 				C5F1AC0130190004AA110001 /* SQLiteDataMigrator+V4.swift in Sources */,
+				C5E001012FFFF00100E00001 /* SQLiteDataMigrator+V5.swift in Sources */,
 				FA3778951F3B6920003B5BAB /* Environment.swift in Sources */,
 			);
 		};
@@ -1009,6 +1016,7 @@
 				C5D41A0D2FDB4A0D00EF30FB /* SQLiteDataMigratorTests+V2.swift in Sources */,
 				C5D41A0E2FDB4A0E00EF30FB /* SQLiteDataMigratorTests+V3.swift in Sources */,
 				C5F1AC0330190004AA110003 /* SQLiteDataMigratorTests+V4.swift in Sources */,
+				C5E001032FFFF00300E00003 /* SQLiteDataMigratorTests+V5.swift in Sources */,
 				C5348FB130008FE4008DFEB3 /* WaitUntil.swift in Sources */,
 				FA08EDF81D1FED7D000D1D13 /* HotKeyServiceTests.swift in Sources */,
 				C5F1AD0430190005AA110004 /* TextRecognizerTests.swift in Sources */,

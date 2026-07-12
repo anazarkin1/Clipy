@@ -27,7 +27,7 @@ struct SQLiteDataDatabaseTriggerTests {
     var database
 
     @Test
-    func pasteboardHistorySearchesIndexIsUpdatedByTriggers() throws {
+    func pasteboardHistorySearchesIndexAndTriggersAreRemoved() throws {
         let historyID = PasteboardHistory.ID(rawValue: "history-1")
 
         try database.write { database in
@@ -46,78 +46,30 @@ struct SQLiteDataDatabaseTriggerTests {
         }
 
         try database.read { database in
-            let historyIDs = try pasteboardHistories(matching: "xqa", database: database)
-                .map(\.history?.id)
-            #expect(historyIDs == [historyID])
-        }
-
-        try database.write { database in
-            try PasteboardHistory.where { $0.id.eq(historyID) }
-                .update { $0.title = "Gamma Delta" }
-                .execute(database)
-        }
-
-        try database.read { database in
-            let oldHistoryIDs = try pasteboardHistories(matching: "xqa", database: database)
-                .map(\.history?.id)
-            #expect(oldHistoryIDs == [])
-
-            let updatedHistoryIDs = try pasteboardHistories(matching: "mma", database: database)
-                .map(\.history?.id)
-            #expect(updatedHistoryIDs == [historyID])
-        }
-
-        try database.write { database in
-            try PasteboardHistory.where { $0.id.eq(historyID) }
-                .update {
-                    $0.title = #bind("Rpb History Finish")
-                    $0.updateAt = 2
-                }
-                .execute(database)
-        }
-
-        try database.read { database in
-            let oldHistoryIDs = try pasteboardHistories(matching: "mma", database: database)
-                .map(\.history?.id)
-            #expect(oldHistoryIDs == [])
-
-            let upsertedHistoryIDs = try pasteboardHistories(matching: "rpb", database: database)
-                .map(\.history?.id)
-            #expect(upsertedHistoryIDs == [historyID])
-        }
-
-        try database.write { database in
-            try PasteboardHistory.where { $0.id.eq(historyID) }
-                .update { $0.ocrText = #bind("Zvw Screenshot Text") }
-                .execute(database)
-        }
-
-        try database.read { database in
-            let ocrHistoryIDs = try pasteboardHistories(matching: "zvw", database: database)
-                .map(\.history?.id)
-            #expect(ocrHistoryIDs == [historyID])
-
-            let titleHistoryIDs = try pasteboardHistories(matching: "rpb", database: database)
-                .map(\.history?.id)
-            #expect(titleHistoryIDs == [historyID])
-        }
-
-        try database.write { database in
-            try PasteboardHistory.delete()
-                .where { $0.id.eq(historyID) }
-                .execute(database)
-        }
-
-        try database.read { database in
-            let historyCount = try #sql(
+            let searchTables = try #sql(
                 """
-                SELECT count(*)
-                FROM "pasteboardHistorySearches"
+                SELECT "name"
+                FROM "sqlite_schema"
+                WHERE "name" LIKE 'pasteboardHistorySearches%'
+                ORDER BY "name"
                 """,
-                as: Int.self
+                as: String.self
             )
-            .fetchOne(database)
-            #expect(historyCount == 0)
+            .fetchAll(database)
+            #expect(searchTables == [])
+
+            let historyTriggers = try #sql(
+                """
+                SELECT "name"
+                FROM "sqlite_schema"
+                WHERE "type" = 'trigger'
+                AND "tbl_name" = 'pasteboardHistories'
+                ORDER BY "name"
+                """,
+                as: String.self
+            )
+            .fetchAll(database)
+            #expect(historyTriggers == [])
         }
     }
 
@@ -219,18 +171,6 @@ struct SQLiteDataDatabaseTriggerTests {
 }
 
 private extension SQLiteDataDatabaseTriggerTests {
-    private func pasteboardHistories(
-        matching query: String,
-        database: Database
-    ) throws -> [PasteboardHistorySearchResult] {
-        try PasteboardHistorySearch
-            .where { $0.match(query) }
-            .leftJoin(PasteboardHistory.all) { $0.id.eq($1.id) }
-            .leftJoin(PasteboardHistoryThumbnailAsset.all) { $0.id.eq($2.pasteboardHistoryID) }
-            .select { PasteboardHistorySearchResult.Columns(history: $1, thumbnailAsset: $2) }
-            .fetchAll(database)
-    }
-
     private func snippets(
         matching query: String,
         database: Database

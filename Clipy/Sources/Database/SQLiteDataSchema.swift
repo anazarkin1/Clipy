@@ -20,13 +20,39 @@ struct PasteboardHistory: Identifiable, Equatable {
 
     @Column(primaryKey: true)
     let id: ID
-    let title: String
-    let ocrText: String?
+    let titleData: Data
+    let ocrTextData: Data?
     @Column(as: [NSPasteboard.PasteboardType].JSONRepresentation.self)
     let pasteboardTypes: [NSPasteboard.PasteboardType]
     let createdAt: Int
     let updateAt: Int
     let deviceID: String?
+
+    var title: String {
+        String(data: titleData, encoding: .utf8) ?? ""
+    }
+
+    var ocrText: String? {
+        ocrTextData.flatMap { String(data: $0, encoding: .utf8) }
+    }
+
+    init(
+        id: ID,
+        title: String,
+        ocrText: String?,
+        pasteboardTypes: [NSPasteboard.PasteboardType],
+        createdAt: Int,
+        updateAt: Int,
+        deviceID: String?
+    ) {
+        self.id = id
+        self.titleData = Data(title.utf8)
+        self.ocrTextData = ocrText.map { Data($0.utf8) }
+        self.pasteboardTypes = pasteboardTypes
+        self.createdAt = createdAt
+        self.updateAt = updateAt
+        self.deviceID = deviceID
+    }
 }
 
 @Table
@@ -58,19 +84,6 @@ struct PasteboardHistoryThumbnailAsset: Identifiable, Equatable {
 @Selection
 struct PasteboardHistoryDetail: Equatable {
     let history: PasteboardHistory
-    let thumbnailAsset: PasteboardHistoryThumbnailAsset?
-}
-
-@Table
-struct PasteboardHistorySearch: FTS5, Equatable {
-    let id: PasteboardHistory.ID
-    let title: String
-    let ocrText: String
-}
-
-@Selection
-struct PasteboardHistorySearchResult: Equatable {
-    let history: PasteboardHistory?
     let thumbnailAsset: PasteboardHistoryThumbnailAsset?
 }
 
@@ -108,6 +121,18 @@ struct SnippetSearch: FTS5, Equatable {
 @Selection
 struct SnippetSearchResult: Equatable {
     let snippet: Snippet?
+}
+
+@Table
+struct HistorySecurityMetadata: Identifiable, Equatable {
+    @Column(primaryKey: true)
+    let id: Int
+    let mode: String
+    let formatVersion: Int
+    let databaseID: String
+    let keyID: String?
+    let keyCheck: Data?
+    let cleanupGeneration: Int
 }
 
 extension NSPasteboard.PasteboardType: @retroactive SQLiteType {}

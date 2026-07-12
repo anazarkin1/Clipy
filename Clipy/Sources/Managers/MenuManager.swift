@@ -106,7 +106,7 @@ extension MenuManager {
 // MARK: - Binding
 private extension MenuManager {
     func bind() {
-        pasteboardHistoryRepository.observeHistories()
+        pasteboardHistoryRepository.observeHistoryChanges()
             .receive(on: mainQueue)
             .sink { [weak self] _ in self?.createClipMenu() }
             .store(in: &cancellables)
