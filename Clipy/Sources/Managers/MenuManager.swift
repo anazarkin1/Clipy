@@ -222,19 +222,6 @@ private extension MenuManager {
         return (isMarkWithNumber) ? "\(listNumber). \(title)" : title
     }
 
-    func makeSubmenuItem(_ count: Int, start: Int, end: Int, numberOfItems: Int) -> NSMenuItem {
-        var count = count
-        if start == 0 {
-            count -= 1
-        }
-        var lastNumber = count + numberOfItems
-        if end < lastNumber {
-            lastNumber = end
-        }
-        let menuItemTitle = "\(count + 1) - \(lastNumber)"
-        return makeSubmenuItem(menuItemTitle)
-    }
-
     func makeSubmenuItem(_ title: String) -> NSMenuItem {
         let subMenu = NSMenu(title: "")
         let subMenuItem = NSMenuItem(title: title, action: nil)
@@ -247,95 +234,53 @@ private extension MenuManager {
 // MARK: - Clips
 private extension MenuManager {
     func addHistoryItems(_ menu: NSMenu) {
-        let placeInLine = AppEnvironment.current.defaults.integer(forKey: Constants.UserDefaults.numberOfItemsPlaceInline)
-        let placeInsideFolder = AppEnvironment.current.defaults.integer(forKey: Constants.UserDefaults.numberOfItemsPlaceInsideFolder)
-        let maxHistory = AppEnvironment.current.defaults.integer(forKey: Constants.UserDefaults.maxHistorySize)
+        let presentation = makeHistoryPresentation()
+        let details = fetchHistoryDetails(presentation: presentation)
 
         // History title
         let labelItem = NSMenuItem(title: String(localized: "History"), action: nil)
         labelItem.isEnabled = false
         menu.addItem(labelItem)
 
-        // History
-        let firstIndex = firstIndexOfMenuItems()
-        var listNumber = firstIndex
-        var subMenuCount = placeInLine
-        var subMenuIndex = 1 + placeInLine
-
-        let reorderClipsAfterPasting = AppEnvironment.current.defaults.bool(forKey: Constants.UserDefaults.reorderClipsAfterPasting)
-        let isShowImage = AppEnvironment.current.defaults.bool(forKey: Constants.UserDefaults.showImageInTheMenu)
-        let isShowColorCode = AppEnvironment.current.defaults.bool(forKey: Constants.UserDefaults.showColorPreviewInTheMenu)
-        let historyDetails = pasteboardHistoryRepository.fetchHistoryDetails(
-            sortsByCreatedAt: !reorderClipsAfterPasting,
-            includesThumbnailAsset: isShowImage || isShowColorCode,
-            limit: maxHistory
+        // History (rendered through the shared, deterministic renderer)
+        let renderer = HistoryMenuRenderer(
+            presentation: presentation,
+            action: #selector(AppDelegate.selectClipMenuItem(_:)),
+            target: nil,
+            folderIcon: presentation.showsFolderIcon ? folderIcon : nil
         )
-        let currentSize = historyDetails.count
-        var i = 0
-        historyDetails.forEach { historyDetail in
-            if placeInLine < 1 || placeInLine - 1 < i {
-                // Folder
-                if i == subMenuCount {
-                    let subMenuItem = makeSubmenuItem(subMenuCount, start: firstIndex, end: currentSize, numberOfItems: placeInsideFolder)
-                    menu.addItem(subMenuItem)
-                    listNumber = firstIndex
-                }
-
-                // Clip
-                if let subMenu = menu.item(at: subMenuIndex)?.submenu {
-                    let menuItem = makeClipMenuItem(historyDetail, index: i, listNumber: listNumber)
-                    subMenu.addItem(menuItem)
-                    listNumber += 1
-                }
-            } else {
-                // Clip
-                let menuItem = makeClipMenuItem(historyDetail, index: i, listNumber: listNumber)
-                menu.addItem(menuItem)
-                listNumber += 1
-            }
-
-            i += 1
-            if i == subMenuCount + placeInsideFolder {
-                subMenuCount += placeInsideFolder
-                subMenuIndex += 1
-            }
-        }
+        renderer.makeHistoryItems(details).forEach { menu.addItem($0) }
     }
 
-    func makeClipMenuItem(_ historyDetail: PasteboardHistoryDetail, index: Int, listNumber: Int) -> NSMenuItem {
-        let history = historyDetail.history
-        let isMarkWithNumber = AppEnvironment.current.defaults.bool(forKey: Constants.UserDefaults.menuItemsAreMarkedWithNumbers)
-        let isShowImage = AppEnvironment.current.defaults.bool(forKey: Constants.UserDefaults.showImageInTheMenu)
-        let isShowColorCode = AppEnvironment.current.defaults.bool(forKey: Constants.UserDefaults.showColorPreviewInTheMenu)
-        let addNumbericKeyEquivalents = AppEnvironment.current.defaults.bool(forKey: Constants.UserDefaults.addNumericKeyEquivalents)
+    /// Captures the current menu presentation preferences into an immutable value.
+    func makeHistoryPresentation() -> HistoryMenuPresentation {
+        let defaults = AppEnvironment.current.defaults
+        return HistoryMenuPresentation(
+            firstListNumber: firstIndexOfMenuItems(),
+            isMarkedWithNumbers: defaults.bool(forKey: Constants.UserDefaults.menuItemsAreMarkedWithNumbers),
+            addsNumericKeyEquivalents: defaults.bool(forKey: Constants.UserDefaults.addNumericKeyEquivalents),
+            maxKeyEquivalents: kMaxKeyEquivalents,
+            numberOfItemsPlaceInline: defaults.integer(forKey: Constants.UserDefaults.numberOfItemsPlaceInline),
+            numberOfItemsPlaceInsideFolder: defaults.integer(forKey: Constants.UserDefaults.numberOfItemsPlaceInsideFolder),
+            showsImage: defaults.bool(forKey: Constants.UserDefaults.showImageInTheMenu),
+            showsColorPreview: defaults.bool(forKey: Constants.UserDefaults.showColorPreviewInTheMenu),
+            showsFolderIcon: defaults.bool(forKey: Constants.UserDefaults.showIconInTheMenu),
+            thumbnailWidth: defaults.integer(forKey: Constants.UserDefaults.thumbnailWidth),
+            thumbnailHeight: defaults.integer(forKey: Constants.UserDefaults.thumbnailHeight),
+            showsToolTip: defaults.bool(forKey: Constants.UserDefaults.showToolTipOnMenuItem),
+            maxLengthOfToolTip: defaults.integer(forKey: Constants.UserDefaults.maxLengthOfToolTip)
+        )
+    }
 
-        var keyEquivalent = ""
-        if addNumbericKeyEquivalents && (index < kMaxKeyEquivalents) {
-            let isStartFromZero = AppEnvironment.current.defaults.bool(forKey: Constants.UserDefaults.menuItemsTitleStartWithZero)
-
-            var shortCutNumber = (isStartFromZero) ? index : index + 1
-            if shortCutNumber == kMaxKeyEquivalents {
-                shortCutNumber = 0
-            }
-            keyEquivalent = "\(shortCutNumber)"
-        }
-
-        let titleWithMark = menuItemTitle(history.typedTitle, listNumber: listNumber, isMarkWithNumber: isMarkWithNumber)
-
-        let menuItem = NSMenuItem(title: titleWithMark, action: #selector(AppDelegate.selectClipMenuItem(_:)), keyEquivalent: keyEquivalent)
-        menuItem.representedObject = history.id
-        menuItem.toolTip = history.toolTip
-
-        if isShowImage || isShowColorCode,
-           let thumbnailAsset = historyDetail.thumbnailAsset,
-           let image = NSImage(data: thumbnailAsset.data),
-           (thumbnailAsset.kind == .image && isShowImage) || (thumbnailAsset.kind == .colorCode && isShowColorCode) {
-            let width = AppEnvironment.current.defaults.integer(forKey: Constants.UserDefaults.thumbnailWidth)
-            let height = AppEnvironment.current.defaults.integer(forKey: Constants.UserDefaults.thumbnailHeight)
-            menuItem.image = image.aspectFitImage(CGFloat(width), CGFloat(height))
-        }
-
-        return menuItem
+    func fetchHistoryDetails(presentation: HistoryMenuPresentation) -> [PasteboardHistoryDetail] {
+        let defaults = AppEnvironment.current.defaults
+        let reorderClipsAfterPasting = defaults.bool(forKey: Constants.UserDefaults.reorderClipsAfterPasting)
+        let maxHistory = defaults.integer(forKey: Constants.UserDefaults.maxHistorySize)
+        return pasteboardHistoryRepository.fetchHistoryDetails(
+            sortsByCreatedAt: !reorderClipsAfterPasting,
+            includesThumbnailAsset: presentation.showsImage || presentation.showsColorPreview,
+            limit: maxHistory
+        )
     }
 }
 

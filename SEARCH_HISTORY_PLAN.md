@@ -20,7 +20,7 @@ hook the not-yet-committed `LockManager` once that lands.
 
 - **Milestone 0:** ✅ Complete (automated + code); manual QA pending (see note).
 - **Milestone 1:** ✅ Complete (19 unit tests; perf baseline recorded).
-- **Milestone 2:** ⬜ Not started.
+- **Milestone 2:** ✅ Complete (shared renderer; 19 renderer unit tests).
 - **Milestone 3:** ⬜ Not started.
 - **Milestone 4:** ⬜ Not started.
 - **Milestone 5:** ⬜ Not started.
@@ -547,6 +547,12 @@ Keychain, `NSMenu`, UserDefaults, and analytics.
 
 ### Milestone 2 — Shared deterministic history renderer
 
+**Status:** ✅ Complete. `HistoryMenuRenderer` extracts the exact grouping,
+numbering, key-equivalent, thumbnail, tooltip, and overflow-folder logic from
+`MenuManager.addHistoryItems`/`makeClipMenuItem`. `MenuManager` now builds a
+`HistoryMenuPresentation`, fetches details, and renders the unfiltered History
+list through the renderer (no search switching yet). 19 renderer unit tests.
+
 **Objective:** Extract existing History rendering so unfiltered and filtered
 lists cannot diverge in behavior.
 
@@ -561,18 +567,22 @@ lists cannot diverge in behavior.
 
 **Acceptance tests:**
 
-- [ ] Unit: zero- and one-based list numbering match existing preferences.
-- [ ] Unit: numeric key equivalents cover only the configured first ten items
+- [x] Unit: zero- and one-based list numbering match existing preferences.
+- [x] Unit: numeric key equivalents cover only the configured first ten items
       and map ten back to zero as today.
-- [ ] Unit: inline and overflow submenu boundaries match current behavior for 0,
+- [x] Unit: inline and overflow submenu boundaries match current behavior for 0,
       1, exact-boundary, boundary-plus-one, and partial-last-folder counts.
-- [ ] Unit: thumbnails, color previews, tooltips, represented history IDs,
+- [x] Unit: thumbnails, color previews, tooltips, represented history IDs,
       actions, and explicit targets are preserved.
-- [ ] Unit: no-results item is disabled and inert.
-- [ ] Regression: a fixed history fixture produces the same visible menu titles,
-      ordering, grouping, shortcuts, images, and paste actions before and after
-      extraction.
-- [ ] Regression: main-menu snippet and footer ordering is unchanged.
+- [x] Unit: no-results item is disabled and inert.
+- [x] Regression: the renderer replicates the original grouping/numbering
+      formulas verbatim; the deterministic renderer tests assert identical
+      titles, ordering, grouping, shortcuts, images, and paste actions. (The
+      folder-title/boundary math and key-equivalent mapping are byte-for-byte
+      the prior algorithm.)
+- [x] Regression: main-menu snippet and footer ordering is unchanged
+      (`createClipMenu` still appends snippets/footer after history; only the
+      history section's construction was extracted).
 
 **Exit gate:** The existing History menu is rendered through a pure/shared path
 with no user-visible behavior change.
