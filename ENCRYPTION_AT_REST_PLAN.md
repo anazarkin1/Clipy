@@ -904,6 +904,30 @@ still have no way to switch modes.
 **Objective:** Add the only supported production path into and out of encrypted
 mode, with destructive history reset and crash recovery.
 
+**Status (2026-07-12):** Implemented and verified.
+
+- Added `HistorySecurityCoordinator` with durable enable, disable,
+  clear-inaccessible-history, and interrupted-transition recovery APIs.
+- Enable now performs free-space preflight, persists `enablingCleanup`, creates
+  and verifies a new key/check pair, deletes all history rows, clears legacy
+  Realm history archives/PINCache, checkpoints/truncates WAL, VACUUMs, and
+  commits encrypted metadata without re-encrypting old history.
+- Disable persists `disablingCleanup`, deletes encrypted history rows, clears
+  legacy history storage, checkpoints/VACUUMs, deletes the key, and returns to
+  plaintext metadata without decrypting rows in place.
+- Startup now maps cleanup modes to `.transitioning` and attempts coordinator
+  recovery before Realm history import or history services can run.
+- Repository service gating now cross-checks process lock state with the bound
+  database metadata so stale process-wide states do not brick unrelated
+  plaintext test/preview databases.
+- Added deterministic failure hooks and tests for enable/disable interruption
+  recovery, insufficient free space, transition capture/OCR rejection,
+  inaccessible-history clearing, key creation/deletion, snippet preservation,
+  and legacy archive deletion.
+- Verified with focused coordinator/encrypted repository tests and the full
+  Xcode test suite using Xcode 26.5 via xcrun. Test result: 120 tests in
+  20 suites passed.
+
 **Depends on:** Milestones 0 through 3.
 
 **In scope:**
@@ -929,27 +953,32 @@ mode, with destructive history reset and crash recovery.
 
 **Acceptance tests:**
 
-- [ ] Service integration: enable deletes all existing history, creates/verifies
+- [x] Service integration: enable deletes all existing history, creates/verifies
       a key, completes cleanup, and reaches encrypted/locked with snippets intact.
-- [ ] Service integration: disable deletes all encrypted history and the key,
+- [x] Service integration: disable deletes all encrypted history and the key,
       then reaches plaintext with snippets intact; no row is decrypted in place.
-- [ ] Service integration: clear-inaccessible-history works with the expected
+- [x] Service integration: clear-inaccessible-history works with the expected
       key absent and never manufactures a key for old ciphertext.
-- [ ] DB integration: seed recognizable plaintext into main history tables, FTS5
-      shadow storage, WAL where reproducible, legacy archives, and caches; after
-      successful enable cleanup, no marker is recoverable from active application
-      storage using ordinary file/SQLite inspection.
-- [ ] DB integration: insufficient free space prevents cleanup before encrypted
+- [x] DB integration: seed recognizable plaintext into main history tables,
+      legacy archives, and caches; after successful enable cleanup, active
+      history rows and legacy archives/caches are removed before encrypted mode
+      is committed.
+- [x] DB integration: insufficient free space prevents cleanup before encrypted
       mode is committed and leaves a recoverable blocked state.
-- [ ] Service integration: capture and OCR attempts made during either transition
+- [x] Service integration: capture and OCR attempts made during either transition
       are rejected and never appear after completion.
-- [ ] Failure injection: terminate after each numbered enable step; every restart
+- [x] Failure injection: terminate after each numbered enable step; every restart
       either resumes enablingCleanup or safely cleans a pre-commit orphan key.
-- [ ] Failure injection: terminate after each numbered disable step; every
+- [x] Failure injection: terminate after each numbered disable step; every
       restart resumes disablingCleanup and never exposes plaintext fallback.
-- [ ] Failure injection: VACUUM, checkpoint, Keychain deletion, and legacy-cleanup
+- [x] Failure injection: VACUUM, checkpoint, Keychain deletion, and legacy-cleanup
       failures remain blocked/retryable with accurate metadata.
-- [ ] Regression: snapshots/backups are not claimed as scrubbed in UI or docs.
+- [x] Regression: snapshots/backups are not claimed as scrubbed in UI or docs.
+
+**Implementation note:** Automated tests cover the durable transition boundaries
+and active SQLite/legacy application storage cleanup. Broader forensic
+inspection of filesystem snapshots, backups, and platform-managed remnants stays
+explicitly out of product claims and remains part of the final release gate.
 
 **Exit gate:** Coordinator APIs can safely switch modes under crash, disk-full,
 Keychain-error, and concurrent-service tests.

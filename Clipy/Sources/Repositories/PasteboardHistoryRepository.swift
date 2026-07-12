@@ -75,7 +75,7 @@ final class PasteboardHistoryRepository: PasteboardHistoryRepositoryProtocol {
         includesThumbnailAsset: Bool,
         limit: Int
     ) -> [PasteboardHistoryDetail] {
-        guard HistorySecurityBootstrap.startupState.allowsHistoryServices else { return [] }
+        guard allowsHistoryServices() else { return [] }
         return withErrorReporting {
             try database.read { database in
                 let histories = PasteboardHistory
@@ -118,7 +118,7 @@ final class PasteboardHistoryRepository: PasteboardHistoryRepositoryProtocol {
     }
 
     func fetchHistory(id: PasteboardHistory.ID) -> PasteboardHistory? {
-        guard HistorySecurityBootstrap.startupState.allowsHistoryServices else { return nil }
+        guard allowsHistoryServices() else { return nil }
         return withErrorReporting {
             try database.read { database in
                 guard let history = try PasteboardHistory.find(id).fetchOne(database) else { return nil }
@@ -132,7 +132,7 @@ final class PasteboardHistoryRepository: PasteboardHistoryRepositoryProtocol {
     }
 
     func fetchContent(id: PasteboardHistory.ID) -> PasteboardContent? {
-        guard HistorySecurityBootstrap.startupState.allowsHistoryServices else { return nil }
+        guard allowsHistoryServices() else { return nil }
         return withErrorReporting {
             try database.read { database in
                 let assets = try PasteboardHistoryAsset
@@ -157,7 +157,7 @@ final class PasteboardHistoryRepository: PasteboardHistoryRepositoryProtocol {
     }
 
     func save(id: PasteboardHistory.ID, content: PasteboardContent, updateAt: Int) {
-        guard HistorySecurityBootstrap.startupState.allowsHistoryServices else { return }
+        guard allowsHistoryServices() else { return }
         withErrorReporting {
             try database.write { database in
                 if let cryptoService = try CryptoService(database: database) {
@@ -201,7 +201,7 @@ final class PasteboardHistoryRepository: PasteboardHistoryRepositoryProtocol {
     }
 
     func updateOCRText(id: PasteboardHistory.ID, ocrText: String) {
-        guard HistorySecurityBootstrap.startupState.allowsHistoryServices else { return }
+        guard allowsHistoryServices() else { return }
         withErrorReporting {
             try database.write { database in
                 let cryptoService = try CryptoService(database: database)
@@ -256,6 +256,45 @@ final class PasteboardHistoryRepository: PasteboardHistoryRepositoryProtocol {
 }
 
 private extension PasteboardHistoryRepository {
+    func allowsHistoryServices() -> Bool {
+        let metadataMode = currentMetadataMode()
+        switch HistorySecurityBootstrap.startupState {
+        case .plaintext:
+            return metadataMode == .plaintext
+        case .unlocked:
+            // Encrypted mode is available for the matching encrypted database.
+            // Plaintext mode remains available if a stale process-wide unlocked
+            // state is observed while this repository is bound to a plaintext
+            // test/preview database.
+            return metadataMode == .encrypted || metadataMode == .plaintext
+        case .blockedByOrphanKeys, .locked, .keyMissing, .keyUnavailable, .corrupt:
+            // These blocked states should only suppress encrypted/protected
+            // databases. A plaintext database in another dependency context
+            // should not be bricked by stale process-wide state.
+            return metadataMode == .plaintext
+        case let .transitioning(transitionMode):
+            return metadataMode != transitionMode && metadataMode == .plaintext
+        }
+    }
+
+    func currentMetadataMode() -> HistorySecurityMode? {
+        let mode: HistorySecurityMode?? = withErrorReporting {
+            try database.read { database in
+                try #sql(
+                    """
+                    SELECT "mode"
+                    FROM "historySecurityMetadata"
+                    WHERE "id" = 1
+                    """,
+                    as: String.self
+                )
+                .fetchOne(database)
+                .flatMap(HistorySecurityMode.init(rawValue:))
+            }
+        }
+        return mode.flatMap { $0 }
+    }
+
     func saveEncrypted(
         content: PasteboardContent,
         updateAt: Int,

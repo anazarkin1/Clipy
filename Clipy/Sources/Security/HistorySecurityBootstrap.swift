@@ -44,8 +44,10 @@ struct HistorySecurityBootstrap {
             switch mode {
             case .plaintext:
                 return try plaintextState()
-            case .encrypted, .enablingCleanup, .disablingCleanup:
+            case .encrypted:
                 return try protectedState(metadata: metadata, databaseID: databaseID)
+            case .enablingCleanup, .disablingCleanup:
+                return .transitioning(mode)
             }
         } catch let error as EncryptionKeyStoreError {
             switch error {

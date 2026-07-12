@@ -24,8 +24,12 @@ struct ClipyApp: App {
         let sqliteDatabaseExists = (try? SQLiteDataDatabase.databaseURL().checkResourceIsReachable()) ?? false
         prepareDependencies { values in
             try! values.bootstrapDatabase()
-            let historyLockState = HistorySecurityBootstrap().bootstrap()
+            var historyLockState = HistorySecurityBootstrap().bootstrap()
             HistorySecurityBootstrap.startupState = historyLockState
+            if case .transitioning = historyLockState {
+                historyLockState = (try? HistorySecurityCoordinator().recoverInterruptedTransition()) ?? historyLockState
+                HistorySecurityBootstrap.startupState = historyLockState
+            }
             if !sqliteDatabaseExists {
                 migration.migrateFromRealmToSQLiteData(includeHistories: historyLockState.allowsRealmHistoryImport)
             }

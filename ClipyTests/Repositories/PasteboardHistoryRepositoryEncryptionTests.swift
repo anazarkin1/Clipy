@@ -136,6 +136,7 @@ struct EncryptedHistoryRepositoryTests {
 
     @Test
     func blockedEncryptedStatesRejectHistoryOperations() throws {
+        _ = try enableEncryptedHistory()
         defer { HistorySecurityBootstrap.startupState = .plaintext }
         let content = try #require(PasteboardContent("blocked secret"))
         let legacyID = PasteboardHistory.ID(rawValue: content.hash)

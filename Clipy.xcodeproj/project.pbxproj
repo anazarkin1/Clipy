@@ -66,6 +66,8 @@
 		C5E003122FFFF11200E00012 /* HistoryLockState.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5E003022FFFF10200E00002 /* HistoryLockState.swift */; };
 		C5E003132FFFF11300E00013 /* HistorySecurityBootstrap.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5E003032FFFF10300E00003 /* HistorySecurityBootstrap.swift */; };
 		C5E004012FFFF20100E00001 /* CryptoService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5E004002FFFF20000E00000 /* CryptoService.swift */; };
+		C5E004052FFFF20500E00005 /* HistorySecurityCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5E004042FFFF20400E00004 /* HistorySecurityCoordinator.swift */; };
+		C5E004072FFFF20700E00007 /* HistorySecurityCoordinatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5E004062FFFF20600E00006 /* HistorySecurityCoordinatorTests.swift */; };
 		C5E003142FFFF11400E00014 /* EncryptionKeyStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5E003042FFFF10400E00004 /* EncryptionKeyStoreTests.swift */; };
 		C5E003152FFFF11500E00015 /* HistoryKeyCheckTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5E003052FFFF10500E00005 /* HistoryKeyCheckTests.swift */; };
 		C5E003162FFFF11600E00016 /* HistorySecurityBootstrapTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5E003062FFFF10600E00006 /* HistorySecurityBootstrapTests.swift */; };
@@ -241,6 +243,8 @@
 		C5E003022FFFF10200E00002 /* HistoryLockState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryLockState.swift; sourceTree = "<group>"; };
 		C5E003032FFFF10300E00003 /* HistorySecurityBootstrap.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistorySecurityBootstrap.swift; sourceTree = "<group>"; };
 		C5E004002FFFF20000E00000 /* CryptoService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CryptoService.swift; sourceTree = "<group>"; };
+		C5E004042FFFF20400E00004 /* HistorySecurityCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistorySecurityCoordinator.swift; sourceTree = "<group>"; };
+		C5E004062FFFF20600E00006 /* HistorySecurityCoordinatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistorySecurityCoordinatorTests.swift; sourceTree = "<group>"; };
 		C5E003042FFFF10400E00004 /* EncryptionKeyStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EncryptionKeyStoreTests.swift; sourceTree = "<group>"; };
 		C5E003052FFFF10500E00005 /* HistoryKeyCheckTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryKeyCheckTests.swift; sourceTree = "<group>"; };
 		C5E003062FFFF10600E00006 /* HistorySecurityBootstrapTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistorySecurityBootstrapTests.swift; sourceTree = "<group>"; };
@@ -629,6 +633,7 @@
 				C5E003012FFFF10100E00001 /* HistoryKeyCheck.swift */,
 				C5E003022FFFF10200E00002 /* HistoryLockState.swift */,
 				C5E003032FFFF10300E00003 /* HistorySecurityBootstrap.swift */,
+				C5E004042FFFF20400E00004 /* HistorySecurityCoordinator.swift */,
 			);
 			path = Security;
 			sourceTree = "<group>";
@@ -640,6 +645,7 @@
 				C5E002032FFFF00300E00003 /* HistoryCryptoTests.swift */,
 				C5E003052FFFF10500E00005 /* HistoryKeyCheckTests.swift */,
 				C5E003062FFFF10600E00006 /* HistorySecurityBootstrapTests.swift */,
+				C5E004062FFFF20600E00006 /* HistorySecurityCoordinatorTests.swift */,
 			);
 			path = Security;
 			sourceTree = "<group>";
@@ -1067,6 +1073,7 @@
 				C5E003122FFFF11200E00012 /* HistoryLockState.swift in Sources */,
 				C5E003132FFFF11300E00013 /* HistorySecurityBootstrap.swift in Sources */,
 				C5E004012FFFF20100E00001 /* CryptoService.swift in Sources */,
+				C5E004052FFFF20500E00005 /* HistorySecurityCoordinator.swift in Sources */,
 				FA3778951F3B6920003B5BAB /* Environment.swift in Sources */,
 			);
 		};
@@ -1098,6 +1105,7 @@
 				C5E003142FFFF11400E00014 /* EncryptionKeyStoreTests.swift in Sources */,
 				C5E003152FFFF11500E00015 /* HistoryKeyCheckTests.swift in Sources */,
 				C5E003162FFFF11600E00016 /* HistorySecurityBootstrapTests.swift in Sources */,
+				C5E004072FFFF20700E00007 /* HistorySecurityCoordinatorTests.swift in Sources */,
 			);
 		};
 /* End PBXSourcesBuildPhase section */

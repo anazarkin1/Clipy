@@ -12,6 +12,7 @@
 
 import AppKit
 import Dependencies
+import PINCache
 import RealmSwift
 import SQLiteData
 
@@ -39,6 +40,22 @@ struct DatabaseMigration {
                 try Snippet.upsert { snippets.1 }.execute(database)
             }
         }
+    }
+
+    func deleteLegacyHistoryStorage() throws {
+        guard let realm = realm() else {
+            PINCache.shared.removeAllObjects()
+            return
+        }
+        let clips = Array(realm.objects(CPYClip.self))
+        let dataPaths = clips.map(\.dataPath).filter { !$0.isEmpty }
+        try realm.write {
+            realm.delete(clips)
+        }
+        for dataPath in dataPaths where FileManager.default.fileExists(atPath: dataPath) {
+            try FileManager.default.removeItem(atPath: dataPath)
+        }
+        PINCache.shared.removeAllObjects()
     }
 
     // swiftlint:disable:next large_tuple
