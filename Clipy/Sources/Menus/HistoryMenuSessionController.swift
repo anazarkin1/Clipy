@@ -83,6 +83,14 @@ final class HistoryMenuSessionController: NSObject {
     private(set) var numericShortcutsSuppressed = true
     private var pendingDebounce: HistoryMenuDebounceToken?
 
+    // MARK: - Coordination hooks
+    /// Invoked from `menuWillOpen` so the owner can refresh the snapshot as a
+    /// final consistency check before the menu is shown.
+    var onMenuWillOpen: ((HistoryMenuSessionController) -> Void)?
+    /// Invoked from `menuDidClose` so the owner can apply a deferred skeleton
+    /// rebuild that was suppressed while the menu was tracking.
+    var onMenuDidClose: ((HistoryMenuSessionController) -> Void)?
+
     // Test-observable counters.
     private(set) var scheduledFocusCount = 0
     private(set) var performedFocusCount = 0
@@ -156,6 +164,24 @@ final class HistoryMenuSessionController: NSObject {
         pendingDebounce?.cancel()
         pendingDebounce = nil
         renderResults(for: searchFieldView.query)
+    }
+
+    /// Clears the query, field text, normalized search state, pending work, and
+    /// rendered results in response to a protected-state (lock / key-unavailable
+    /// / error) transition. The encryption feature owns the placeholder shown in
+    /// the menu; this method only guarantees that no stale query or result
+    /// survives the transition. Assign an empty snapshot via `updateSnapshot` to
+    /// drop all normalized documents from memory.
+    func clearForProtectedState() {
+        snapshotGeneration &+= 1
+        queryGeneration &+= 1
+        pendingDebounce?.cancel()
+        pendingDebounce = nil
+        clearQuery()
+        numericShortcutsSuppressed = true
+        if snapshot != nil {
+            renderResults(for: "")
+        }
     }
 
     // MARK: - Rendering
@@ -276,6 +302,9 @@ extension HistoryMenuSessionController: NSMenuDelegate {
         clearQuery()
         numericShortcutsSuppressed = true
         renderResults(for: "")
+        // Final consistency check: let the owner refresh the snapshot with the
+        // latest history/preferences before the menu is shown.
+        onMenuWillOpen?(self)
         scheduleFocus()
     }
 
@@ -286,6 +315,8 @@ extension HistoryMenuSessionController: NSMenuDelegate {
         pendingDebounce?.cancel()
         pendingDebounce = nil
         clearQuery()
+        // Apply any menu-skeleton rebuild that was deferred while tracking.
+        onMenuDidClose?(self)
     }
 }
 

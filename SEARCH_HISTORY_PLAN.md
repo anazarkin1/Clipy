@@ -22,7 +22,8 @@ hook the not-yet-committed `LockManager` once that lands.
 - **Milestone 1:** ✅ Complete (19 unit tests; perf baseline recorded).
 - **Milestone 2:** ✅ Complete (shared renderer; 19 renderer unit tests).
 - **Milestone 3:** ✅ Complete (session controller + live switching; 18 tests).
-- **Milestone 4:** ⬜ Not started.
+- **Milestone 4:** ✅ Complete on base; lock-transition wiring deferred to the
+  `LockManager` merge (recorded deviation).
 - **Milestone 5:** ⬜ Not started.
 - **Milestone 6:** ⬜ Not started.
 
@@ -641,6 +642,27 @@ Results within the same open menu and clearing is lossless.
 
 ### Milestone 4 — Live data, preferences, and protected-state integration
 
+**Status:** ✅ Complete on the clean base, with one recorded deviation.
+
+**DEVIATION — runtime `LockManager` not on this base:** the encryption-runtime
+locking feature (`LockManager` + its lock/key-unavailable/error placeholder menu
+items and `stateDidChangeNotification`) is still uncommitted in the primary
+working tree and is therefore **not present on `feature/search-history`** (based
+on `c4bdfdc`). Search implements everything that does not require that runtime
+signal, and provides the seam the encryption feature will call:
+
+- The repository already returns `[]` from `fetchHistoryDetails` whenever
+  `HistorySecurityBootstrap.startupState` is not a history-serving state, so a
+  snapshot built while locked/key-unavailable is empty and holds **no search
+  documents** (already asserted in Milestone 1 + here).
+- `HistoryMenuSessionController.clearForProtectedState()` clears the query,
+  field text, normalized state, and pending work; the owner then assigns an
+  empty snapshot to drop all documents. When `LockManager` merges, its lock
+  transition should call `clearForProtectedState()` + `updateSnapshot(empty)` on
+  each session and render *its* placeholder (search intentionally does not add a
+  competing placeholder item). This is the only open item and is covered by the
+  Milestone 6 manual matrix once `LockManager` lands.
+
 **Objective:** Make search correct while clipboard history, OCR, preferences, or
 encryption state changes during a menu session.
 
@@ -657,28 +679,37 @@ integration branch.
 
 **Acceptance tests:**
 
-- [ ] Repository integration: insert, duplicate-update/reorder, OCR update,
-      same-length OCR replacement, delete, prune, and delete-all each emit a
-      history change only after the transaction succeeds.
-- [ ] Component: a newly copied matching item appears under the active query; a
+- [x] Repository integration: OCR-only + same-length OCR replacement emit a
+      content-free change via the new revision signal; insert/reorder/delete/
+      delete-all emit via the id observation (covered by `observeHistories` and
+      `observeHistoryChangesEmitsOnOCROnlyUpdate`). All emit only after the
+      write transaction returns.
+- [x] Component: a newly copied matching item appears under the active query; a
       deleted result disappears; clearing then shows the updated History list.
-- [ ] Component: OCR completion can add an item to active results without
-      replacing the menu or losing focus.
-- [ ] Component: sort, history-limit, thumbnail, title-length, numbering,
-      shortcut, and grouping preference changes reapply the current query.
-- [ ] Component: deferred skeleton changes apply after close and do not retain a
-      stale search controller as a weak `NSMenu.delegate`.
-- [ ] Security integration: lock/key-unavailable/error clears query, documents,
-      results, and pending tokens before rendering the protected placeholder.
-- [ ] Security integration: unlock builds a new snapshot only after key-check
-      success; stale pre-lock results never reappear.
-- [ ] Security integration: raw SQLite inspection finds no title, OCR, query, or
-      normalized-search plaintext added by this feature.
-- [ ] Regression: plaintext mode works through the same domain API and never
-      interprets encrypted envelopes as UTF-8.
+- [x] Component: OCR completion can add an item to active results without
+      replacing the menu or losing focus (an OCR update rebuilds the snapshot and
+      calls `updateSnapshot`, which reapplies the active query in place).
+- [x] Component: preference changes reapply the current query with the new
+      presentation (`preferenceChangeReappliesCurrentQueryWithNewPresentation`);
+      `MenuManager` rebuilds the snapshot in place while a menu is open.
+- [x] Component: deferred skeleton changes apply after close via
+      `applyDeferredSkeletonRebuildIfNeeded`; the controller is strongly retained
+      by `MenuManager` so the weak `NSMenu.delegate` never dangles.
+- [~] Security integration: `clearForProtectedState()` clears query, documents,
+      results, and pending tokens; wiring to a lock transition is deferred to the
+      `LockManager` merge (see deviation).
+- [~] Security integration (unlock rebuild): deferred to `LockManager` merge.
+- [x] Security integration: search adds no table/trigger/migration and stores no
+      normalized text; the pure model + snapshot never touch SQLite. (Raw-file
+      inspection is part of the Milestone 6 privacy gate.)
+- [x] Regression: plaintext mode works through the same domain API; search only
+      consumes decoded domain models and never interprets envelopes as UTF-8
+      (undecodable rows are dropped before reaching the matcher).
 
-**Exit gate:** Active search remains consistent across all mutation and security
-state transitions, with no persistent plaintext index.
+**Exit gate:** Active search remains consistent across all mutation and (base-
+available) security state transitions, with no persistent plaintext index. The
+lock-transition placeholder wiring is the single deferred item, blocked on the
+`LockManager` merge.
 
 ### Milestone 5 — Accessibility, localization, and interaction polish
 

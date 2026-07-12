@@ -71,10 +71,10 @@ struct HistoryMenuSessionControllerTests {
         return (controller, focus, debounce)
     }
 
-    private func presentation(numeric: Bool = false, inline: Int = 20) -> HistoryMenuPresentation {
+    private func presentation(numeric: Bool = false, inline: Int = 20, marked: Bool = false) -> HistoryMenuPresentation {
         HistoryMenuPresentation(
             firstListNumber: 1,
-            isMarkedWithNumbers: false,
+            isMarkedWithNumbers: marked,
             addsNumericKeyEquivalents: numeric,
             numberOfItemsPlaceInline: inline,
             numberOfItemsPlaceInsideFolder: 10,
@@ -88,7 +88,7 @@ struct HistoryMenuSessionControllerTests {
         )
     }
 
-    private func snapshot(_ rows: [(String, String)], numeric: Bool = false, inline: Int = 20) -> HistoryMenuSnapshot {
+    private func snapshot(_ rows: [(String, String)], numeric: Bool = false, inline: Int = 20, marked: Bool = false) -> HistoryMenuSnapshot {
         let details = rows.map { id, title in
             PasteboardHistoryDetail(
                 history: PasteboardHistory(
@@ -103,7 +103,13 @@ struct HistoryMenuSessionControllerTests {
                 thumbnailAsset: nil
             )
         }
-        return HistoryMenuSnapshot(details: details, presentation: presentation(numeric: numeric, inline: inline))
+        return HistoryMenuSnapshot(details: details, presentation: presentation(numeric: numeric, inline: inline, marked: marked))
+    }
+
+    /// Simulates real typing: updates the field editor value and notifies the delegate.
+    private func type(_ controller: HistoryMenuSessionController, _ text: String) {
+        controller.searchFieldView.query = text
+        controller.historySearchFieldView(controller.searchFieldView, didChangeQuery: text)
     }
 
     @discardableResult
@@ -315,5 +321,96 @@ struct HistoryMenuSessionControllerTests {
         let menuB = install(controller, snapshot: snapshot([("2", "b")]))
         #expect(!menuA.items.contains(controller.searchMenuItem))
         #expect(menuB.items.first === controller.searchMenuItem)
+    }
+
+    // MARK: - Milestone 4: live data / preferences / protected state
+    @Test
+    func updateSnapshotReappliesActiveQueryPreservingIdentities() {
+        let (controller, _, debounce) = makeController()
+        let menu = install(controller, snapshot: snapshot([("1", "alpha"), ("2", "beta")]))
+        controller.menuWillOpen(menu)
+        type(controller, "beta")
+        debounce.firePending()
+        #expect(controller.dynamicItems.map(\.title) == ["beta"])
+
+        let searchItem = controller.searchMenuItem
+        let field = controller.searchFieldView
+        // A newly copied matching item arrives while the query is active.
+        controller.updateSnapshot(snapshot([("1", "alpha"), ("2", "beta"), ("3", "beta two")]))
+
+        #expect(controller.dynamicItems.map(\.title) == ["beta", "beta two"])
+        #expect(controller.sectionLabelItem.title == controller.searchResultsLabel)
+        #expect(controller.searchMenuItem === searchItem)
+        #expect(controller.searchFieldView === field)
+        #expect(menu.items.first === searchItem)
+    }
+
+    @Test
+    func deletedResultDisappearsThenClearingShowsUpdatedHistory() {
+        let (controller, _, debounce) = makeController()
+        let menu = install(controller, snapshot: snapshot([("1", "alpha"), ("2", "beta")]))
+        controller.menuWillOpen(menu)
+        type(controller, "beta")
+        debounce.firePending()
+        #expect(controller.dynamicItems.map(\.title) == ["beta"])
+
+        // "beta" is deleted while the query is active.
+        controller.updateSnapshot(snapshot([("1", "alpha")]))
+        #expect(controller.dynamicItems.count == 1)
+        #expect(controller.dynamicItems[0].title == controller.noMatchesLabel)
+
+        // Clearing then shows the updated History list.
+        type(controller, "")
+        #expect(controller.sectionLabelItem.title == controller.historyLabel)
+        #expect(controller.dynamicItems.map(\.title) == ["alpha"])
+    }
+
+    @Test
+    func preferenceChangeReappliesCurrentQueryWithNewPresentation() {
+        let (controller, _, debounce) = makeController()
+        let menu = install(controller, snapshot: snapshot([("1", "alpha"), ("2", "beta")], marked: false))
+        controller.menuWillOpen(menu)
+        type(controller, "beta")
+        debounce.firePending()
+        #expect(controller.dynamicItems.map(\.title) == ["beta"])
+
+        // Numbering preference turns on; the active query is reapplied with it.
+        controller.updateSnapshot(snapshot([("1", "alpha"), ("2", "beta")], marked: true))
+        #expect(controller.dynamicItems.map(\.title) == ["1. beta"])
+    }
+
+    @Test
+    func menuLifecycleHooksFire() {
+        let (controller, _, _) = makeController()
+        var willOpen = 0
+        var didClose = 0
+        controller.onMenuWillOpen = { _ in willOpen += 1 }
+        controller.onMenuDidClose = { _ in didClose += 1 }
+        let menu = install(controller, snapshot: snapshot([("1", "a")]))
+
+        controller.menuWillOpen(menu)
+        controller.menuDidClose(menu)
+        #expect(willOpen == 1)
+        #expect(didClose == 1)
+    }
+
+    @Test
+    func clearForProtectedStateClearsQueryDocumentsAndResults() {
+        let (controller, _, debounce) = makeController()
+        let menu = install(controller, snapshot: snapshot([("1", "alpha"), ("2", "beta")]))
+        controller.menuWillOpen(menu)
+        type(controller, "beta")
+        debounce.firePending()
+        #expect(controller.dynamicItems.map(\.title) == ["beta"])
+
+        // A lock transition clears query/field/pending work...
+        controller.clearForProtectedState()
+        #expect(controller.query.isEmpty)
+        #expect(controller.searchFieldView.query.isEmpty)
+
+        // ...and the owner assigns an empty snapshot, dropping all documents.
+        controller.updateSnapshot(snapshot([]))
+        #expect(controller.dynamicItems.isEmpty)
+        #expect(controller.snapshot?.documentsByID.isEmpty == true)
     }
 }

@@ -80,6 +80,29 @@ struct PasteboardHistoryRepositoryTests {
         try await waitUntil { changeCount >= 2 }
     }
 
+    @Test(.timeLimit(.minutes(1)))
+    func observeHistoryChangesEmitsOnOCROnlyUpdate() async throws {
+        let imageContent = try #require(
+            PasteboardContent(image: NSImage.create(with: .blue, size: NSSize(width: 20, height: 20)))
+        )
+        let id = PasteboardHistory.ID(rawValue: imageContent.hash)
+        repository.save(id: id, content: imageContent, updateAt: 1)
+
+        var changeCount = 0
+        let cancellable = repository.observeHistoryChanges().sink { changeCount += 1 }
+        defer { _ = cancellable }
+        try await waitUntil { changeCount >= 1 }
+
+        // An OCR-only update changes neither the id nor updateAt, so it must be
+        // delivered via the content-free revision signal.
+        repository.updateOCRText(id: id, ocrText: "recognized text")
+        try await waitUntil { changeCount >= 2 }
+
+        // A same-length OCR replacement must also emit.
+        repository.updateOCRText(id: id, ocrText: "recognized TEXT!")
+        try await waitUntil { changeCount >= 3 }
+    }
+
     @Test
     func saveAndFetchHistory() throws {
         #expect(!repository.hasHistories())

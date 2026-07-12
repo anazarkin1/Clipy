@@ -49,6 +49,9 @@ final class MenuManager: NSObject {
     private var mainQueue
     private var cancellables: Set<AnyCancellable> = []
     private var snippetFolderDetails = [SnippetFolderDetail]()
+    /// A full menu-skeleton rebuild requested while a history-bearing menu was
+    /// tracking; applied on `menuDidClose` so the open `NSMenu` is never replaced.
+    private var pendingSkeletonRebuild = false
 
     // MARK: - Enum Values
     enum StatusType: Int {
@@ -65,7 +68,21 @@ final class MenuManager: NSObject {
     }
 
     func setup() {
+        configureSessions()
         bind()
+    }
+
+    private func configureSessions() {
+        for session in [mainMenuSession, historyMenuSession] {
+            session.onMenuWillOpen = { [weak self] session in
+                // Final consistency check: refresh with the latest history.
+                guard let self else { return }
+                session.updateSnapshot(self.makeHistorySnapshot())
+            }
+            session.onMenuDidClose = { [weak self] _ in
+                self?.applyDeferredSkeletonRebuildIfNeeded()
+            }
+        }
     }
 
 }
@@ -115,13 +132,13 @@ private extension MenuManager {
     func bind() {
         pasteboardHistoryRepository.observeHistoryChanges()
             .receive(on: mainQueue)
-            .sink { [weak self] _ in self?.createClipMenu() }
+            .sink { [weak self] _ in self?.refreshOrRebuildMenus() }
             .store(in: &cancellables)
         snippetRepository.observeFolderDetails()
             .receive(on: mainQueue)
             .sink { [weak self] folderDetails in
                 self?.snippetFolderDetails = folderDetails
-                self?.createClipMenu()
+                self?.refreshOrRebuildMenus()
             }
             .store(in: &cancellables)
         // Menu icon
@@ -138,14 +155,14 @@ private extension MenuManager {
             .asDriver(onErrorDriveWith: .empty())
             .drive(onNext: { [weak self] _ in
                 guard let wSelf = self else { return }
-                wSelf.createClipMenu()
+                wSelf.refreshOrRebuildMenus()
             })
             .disposed(by: disposeBag)
         // Edit snippets
         notificationCenter.rx.notification(Notification.Name(rawValue: Constants.Notification.closeSnippetEditor))
             .asDriver(onErrorDriveWith: .empty())
             .drive(onNext: { [weak self] _ in
-                self?.createClipMenu()
+                self?.refreshOrRebuildMenus()
             })
             .disposed(by: disposeBag)
         // Observe change preference settings
@@ -181,9 +198,35 @@ private extension MenuManager {
             .throttle(.seconds(1), scheduler: MainScheduler.instance)
             .asDriver(onErrorDriveWith: .empty())
             .drive(onNext: { [weak self] in
-                self?.createClipMenu()
+                self?.refreshOrRebuildMenus()
             })
             .disposed(by: disposeBag)
+    }
+
+    /// Applies a history/preference/snippet change. While a history-bearing menu
+    /// is tracking, the open menu is refreshed in place (history/presentation via
+    /// the session snapshot) and any skeleton change is deferred to close; the
+    /// tracking `NSMenu` is never replaced. Otherwise the menus are rebuilt.
+    func refreshOrRebuildMenus() {
+        guard isAnyHistoryMenuOpen else {
+            createClipMenu()
+            return
+        }
+        let snapshot = makeHistorySnapshot()
+        if mainMenuSession.isMenuOpen { mainMenuSession.updateSnapshot(snapshot) }
+        if historyMenuSession.isMenuOpen { historyMenuSession.updateSnapshot(snapshot) }
+        // Snippet/footer changes cannot be swapped safely into a tracking menu.
+        pendingSkeletonRebuild = true
+    }
+
+    func applyDeferredSkeletonRebuildIfNeeded() {
+        guard !isAnyHistoryMenuOpen, pendingSkeletonRebuild else { return }
+        pendingSkeletonRebuild = false
+        createClipMenu()
+    }
+
+    var isAnyHistoryMenuOpen: Bool {
+        mainMenuSession.isMenuOpen || historyMenuSession.isMenuOpen
     }
 }
 
