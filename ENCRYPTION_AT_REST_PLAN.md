@@ -1137,6 +1137,26 @@ misleading Touch ID claims, or ambiguous destructive behavior.
 **Objective:** Prove the complete feature against its threat model and document
 the remaining limits before release.
 
+**Status (2026-07-12):** Automated release artifacts implemented; manual
+signed-app release checks remain pending.
+
+- Added `HistorySecurityReleaseGateTests` covering clean-install plaintext
+  bootstrap and 100 enable/disable cycles with consistent metadata, empty
+  history, and no orphan keys in the test key store.
+- Added `Resources/inspect_history_plaintext.py`, a repeatable raw marker
+  scanner for SQLite DB/WAL/journal, legacy Realm paths, and PINCache/cache
+  storage roots.
+- Added `ENCRYPTION_AT_REST_RELEASE_CHECKLIST.md` with captured automated
+  results, raw-inspection commands, manual app QA, performance checks,
+  documentation checks, and PR-description non-goals.
+- Updated `PRIVACY.md` and added `Resources/EncryptedHistoryHelp.md` to state
+  in-memory exposure while unlocked, ThisDeviceOnly key loss, destructive mode
+  transitions, encrypted-history/CloudKit incompatibility, backup/snapshot/SSD
+  limitations, and snippets being out of scope.
+- Verified with focused release-gate tests and the full Xcode test suite using
+  Xcode 26.5 via xcrun with serial test execution. Test result: 133 tests in
+  23 suites passed.
+
 **Depends on:** Milestones 0 through 6.
 
 **In scope:**
@@ -1155,7 +1175,7 @@ the remaining limits before release.
 
 **Acceptance tests:**
 
-- [ ] Automated: clean install starts plaintext; upgrade fixture completes
+- [x] Automated: clean install starts plaintext; upgrade fixture completes
       Milestone 0 migration with no user-visible regression.
 - [ ] Manual app: enabling deletes old history, captures new text/image/RTF/PDF/
       URL history, locks, authenticates, and pastes the exact original values.
@@ -1171,14 +1191,20 @@ the remaining limits before release.
 - [ ] Performance: encryption, hashing, and thumbnail persistence run off the
       main thread; a benchmark report covers 1 MiB and 10 MiB assets and records
       latency plus peak memory without introducing a UI hang.
-- [ ] Reliability: 100 enable/disable cycles against temporary databases finish
+- [x] Reliability: 100 enable/disable cycles against temporary databases finish
       with consistent metadata, empty history at each transition, and no orphan
       Keychain records in the test store.
-- [ ] Documentation: explicitly states in-memory exposure while unlocked,
+- [x] Documentation: explicitly states in-memory exposure while unlocked,
       ThisDeviceOnly key loss, destructive transitions, no encrypted CloudKit
       sync, and inability to scrub historical backups/APFS snapshots/SSD blocks.
 - [ ] Release: no new third-party cryptography dependency is present and all
       security tests run in CI.
+
+**Implementation note:** The raw-inspection command and manual/performance
+checklists are now present, but the signed-app manual exercises and benchmark
+measurements still need to be executed before a product release. The automated
+suite did not add a third-party cryptography dependency and passes under the
+serial Xcode command captured in the release checklist.
 
 **Final release gate:** No known path may write plaintext history while database
 mode is encrypted, transitional, inaccessible, unavailable, or corrupt. Any

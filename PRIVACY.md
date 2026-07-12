@@ -31,9 +31,29 @@ However, clipboard managers can store sensitive information locally. We
 recommend excluding password managers and other sensitive apps from Clipy's
 history recording when possible.
 
-Clipy does not currently claim that locally stored clipboard history is
-encrypted. If your Mac contains sensitive data, we recommend enabling FileVault
-and using macOS security features appropriately.
+Clipy may offer optional encrypted clipboard history at rest. When enabled,
+existing clipboard history is permanently cleared before encrypted mode starts.
+New clipboard-history contents are encrypted in Clipy's local history database,
+and the history key is protected by macOS Keychain user authentication.
+
+Encrypted history has important limits:
+
+- While Clipy is running and encrypted history is unlocked, decrypted values and
+  key material may exist in Clipy's process memory.
+- The encryption key is stored as ThisDeviceOnly. It cannot migrate to another
+  Mac, and if the Keychain item is lost or reset, encrypted history is
+  intentionally unrecoverable.
+- Disabling encrypted history permanently clears encrypted clipboard history
+  instead of decrypting it in place.
+- Encrypted history is incompatible with iCloud/CloudKit history sync.
+- Enabling encryption cannot retroactively scrub Time Machine backups, APFS
+  snapshots, SSD remanence, or other previously created copies.
+- This feature protects clipboard history only. Snippets are not encrypted by
+  this feature.
+
+If encrypted history is not enabled, Clipy does not claim that locally stored
+clipboard history is encrypted. If your Mac contains sensitive data, we
+recommend enabling FileVault and using macOS security features appropriately.
 
 ## Network Communication
 

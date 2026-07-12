@@ -74,6 +74,7 @@
 		C5E005032FFFF30300E00003 /* SecurityPreferenceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5E005022FFFF30200E00002 /* SecurityPreferenceView.swift */; };
 		C5E005052FFFF30500E00005 /* SecurityPreferenceHostingController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5E005042FFFF30400E00004 /* SecurityPreferenceHostingController.swift */; };
 		C5E005072FFFF30700E00007 /* SecuritySettingsViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5E005062FFFF30600E00006 /* SecuritySettingsViewModelTests.swift */; };
+		C5E006012FFFF40100E00001 /* HistorySecurityReleaseGateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5E006002FFFF40000E00000 /* HistorySecurityReleaseGateTests.swift */; };
 		C5E003142FFFF11400E00014 /* EncryptionKeyStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5E003042FFFF10400E00004 /* EncryptionKeyStoreTests.swift */; };
 		C5E003152FFFF11500E00015 /* HistoryKeyCheckTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5E003052FFFF10500E00005 /* HistoryKeyCheckTests.swift */; };
 		C5E003162FFFF11600E00016 /* HistorySecurityBootstrapTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5E003062FFFF10600E00006 /* HistorySecurityBootstrapTests.swift */; };
@@ -257,6 +258,7 @@
 		C5E005022FFFF30200E00002 /* SecurityPreferenceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecurityPreferenceView.swift; sourceTree = "<group>"; };
 		C5E005042FFFF30400E00004 /* SecurityPreferenceHostingController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecurityPreferenceHostingController.swift; sourceTree = "<group>"; };
 		C5E005062FFFF30600E00006 /* SecuritySettingsViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecuritySettingsViewModelTests.swift; sourceTree = "<group>"; };
+		C5E006002FFFF40000E00000 /* HistorySecurityReleaseGateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistorySecurityReleaseGateTests.swift; sourceTree = "<group>"; };
 		C5E003042FFFF10400E00004 /* EncryptionKeyStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EncryptionKeyStoreTests.swift; sourceTree = "<group>"; };
 		C5E003052FFFF10500E00005 /* HistoryKeyCheckTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryKeyCheckTests.swift; sourceTree = "<group>"; };
 		C5E003062FFFF10600E00006 /* HistorySecurityBootstrapTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistorySecurityBootstrapTests.swift; sourceTree = "<group>"; };
@@ -659,6 +661,7 @@
 				C5E003052FFFF10500E00005 /* HistoryKeyCheckTests.swift */,
 				C5E003062FFFF10600E00006 /* HistorySecurityBootstrapTests.swift */,
 				C5E004062FFFF20600E00006 /* HistorySecurityCoordinatorTests.swift */,
+				C5E006002FFFF40000E00000 /* HistorySecurityReleaseGateTests.swift */,
 				C5E0040A2FFFF20A00E0000A /* LockManagerTests.swift */,
 				C5E005062FFFF30600E00006 /* SecuritySettingsViewModelTests.swift */,
 			);
@@ -1128,6 +1131,7 @@
 				C5E003152FFFF11500E00015 /* HistoryKeyCheckTests.swift in Sources */,
 				C5E003162FFFF11600E00016 /* HistorySecurityBootstrapTests.swift in Sources */,
 				C5E004072FFFF20700E00007 /* HistorySecurityCoordinatorTests.swift in Sources */,
+				C5E006012FFFF40100E00001 /* HistorySecurityReleaseGateTests.swift in Sources */,
 				C5E0040B2FFFF20B00E0000B /* LockManagerTests.swift in Sources */,
 				C5E005072FFFF30700E00007 /* SecuritySettingsViewModelTests.swift in Sources */,
 			);
