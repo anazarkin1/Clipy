@@ -14,7 +14,6 @@ import Foundation
 import SQLiteData
 
 extension DatabaseMigrator {
-    // swiftlint:disable:next function_body_length
     mutating func registerMigrationV5() {
         registerMigration("Add history security metadata and BLOB text storage") { database in
             try #sql(
@@ -118,7 +117,7 @@ extension DatabaseMigrator {
                   "keyCheck",
                   "cleanupGeneration"
                 )
-                VALUES (1, 'plaintext', 1, \(UUID().uuidString), NULL, NULL, 0)
+                VALUES (1, 'plaintext', 1, \(bind: UUID().uuidString), NULL, NULL, 0)
                 """
             )
             .execute(database)

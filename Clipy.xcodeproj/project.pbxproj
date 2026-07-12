@@ -56,6 +56,10 @@
 		C5D41A0E2FDB4A0E00EF30FB /* SQLiteDataMigratorTests+V3.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5D41A0B2FDB4A0B00EF30FB /* SQLiteDataMigratorTests+V3.swift */; };
 		C5E001012FFFF00100E00001 /* SQLiteDataMigrator+V5.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5E001002FFFF00000E00001 /* SQLiteDataMigrator+V5.swift */; };
 		C5E001032FFFF00300E00003 /* SQLiteDataMigratorTests+V5.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5E001022FFFF00200E00002 /* SQLiteDataMigratorTests+V5.swift */; };
+		C5E002042FFFF00400E00004 /* EncryptionContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5E002002FFFF00000E00000 /* EncryptionContext.swift */; };
+		C5E002052FFFF00500E00005 /* EncryptionEnvelope.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5E002012FFFF00100E00001 /* EncryptionEnvelope.swift */; };
+		C5E002062FFFF00600E00006 /* HistoryCrypto.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5E002022FFFF00200E00002 /* HistoryCrypto.swift */; };
+		C5E002072FFFF00700E00007 /* HistoryCryptoTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5E002032FFFF00300E00003 /* HistoryCryptoTests.swift */; };
 		C5D76D9E2FBA939E0083839F /* RxCocoa in Frameworks */ = {isa = PBXBuildFile; productRef = C5D76D9D2FBA939E0083839F /* RxCocoa */; };
 		C5D76DA02FBA939E0083839F /* RxSwift in Frameworks */ = {isa = PBXBuildFile; productRef = C5D76D9F2FBA939E0083839F /* RxSwift */; };
 		C5D76DA52FBA98A90083839F /* AEXML in Frameworks */ = {isa = PBXBuildFile; productRef = C5D76DA42FBA98A90083839F /* AEXML */; };
@@ -218,6 +222,10 @@
 		C5D41A0B2FDB4A0B00EF30FB /* SQLiteDataMigratorTests+V3.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SQLiteDataMigratorTests+V3.swift"; sourceTree = "<group>"; };
 		C5E001002FFFF00000E00001 /* SQLiteDataMigrator+V5.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SQLiteDataMigrator+V5.swift"; sourceTree = "<group>"; };
 		C5E001022FFFF00200E00002 /* SQLiteDataMigratorTests+V5.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SQLiteDataMigratorTests+V5.swift"; sourceTree = "<group>"; };
+		C5E002002FFFF00000E00000 /* EncryptionContext.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EncryptionContext.swift; sourceTree = "<group>"; };
+		C5E002012FFFF00100E00001 /* EncryptionEnvelope.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EncryptionEnvelope.swift; sourceTree = "<group>"; };
+		C5E002022FFFF00200E00002 /* HistoryCrypto.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryCrypto.swift; sourceTree = "<group>"; };
+		C5E002032FFFF00300E00003 /* HistoryCryptoTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryCryptoTests.swift; sourceTree = "<group>"; };
 		C5E8EE632FFA260200270F1F /* PasteboardHistoryExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PasteboardHistoryExtensions.swift; sourceTree = "<group>"; };
 		C5E8EE672FFA28D900270F1F /* StringExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StringExtensions.swift; sourceTree = "<group>"; };
 		C5E8EE692FFA2A5000270F1F /* SnippetExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnippetExtensions.swift; sourceTree = "<group>"; };
@@ -547,6 +555,7 @@
 				C5A67BC22FECF0010015A0DE /* Accessibility */,
 				FA3778911F3B690D003B5BAB /* Environments */,
 				FA0D5CE61DDCC5D000AC9052 /* Services */,
+				C5E002082FFFF00800E00008 /* Security */,
 				FA1DB4EC1DDCB4C0007F95C8 /* Preferences */,
 				FA1DB50C1DDCB4C0007F95C8 /* Snippets */,
 				FA1DB4A41DDCB443007F95C8 /* Enums */,
@@ -588,6 +597,24 @@
 				C57235102FF24AD8002158F7 /* NSMenu+Highlight.swift */,
 			);
 			path = Extensions;
+			sourceTree = "<group>";
+		};
+		C5E002082FFFF00800E00008 /* Security */ = {
+			isa = PBXGroup;
+			children = (
+				C5E002002FFFF00000E00000 /* EncryptionContext.swift */,
+				C5E002012FFFF00100E00001 /* EncryptionEnvelope.swift */,
+				C5E002022FFFF00200E00002 /* HistoryCrypto.swift */,
+			);
+			path = Security;
+			sourceTree = "<group>";
+		};
+		C5E002092FFFF00900E00009 /* Security */ = {
+			isa = PBXGroup;
+			children = (
+				C5E002032FFFF00300E00003 /* HistoryCryptoTests.swift */,
+			);
+			path = Security;
 			sourceTree = "<group>";
 		};
 		FA1DB4BE1DDCB460007F95C8 /* Managers */ = {
@@ -749,6 +776,7 @@
 				C571000D2FCEB44000C8F965 /* Extensions */,
 				C571000C2FCEB03000C8F965 /* Models */,
 				C5700B4F2FC5C8C800C8F965 /* Repositories */,
+				C5E002092FFFF00900E00009 /* Security */,
 				FA08EDF71D1FED7D000D1D13 /* HotKeyServiceTests.swift */,
 				FA6167931D3ACCB90049FA14 /* DraggedDataTests.swift */,
 				FAC43DDC1B35D8B100C06102 /* Supporting Files */,
@@ -1004,6 +1032,9 @@
 				C5D41A072FDB4A0700EF30FB /* SQLiteDataMigrator+V3.swift in Sources */,
 				C5F1AC0130190004AA110001 /* SQLiteDataMigrator+V4.swift in Sources */,
 				C5E001012FFFF00100E00001 /* SQLiteDataMigrator+V5.swift in Sources */,
+				C5E002042FFFF00400E00004 /* EncryptionContext.swift in Sources */,
+				C5E002052FFFF00500E00005 /* EncryptionEnvelope.swift in Sources */,
+				C5E002062FFFF00600E00006 /* HistoryCrypto.swift in Sources */,
 				FA3778951F3B6920003B5BAB /* Environment.swift in Sources */,
 			);
 		};
@@ -1030,6 +1061,7 @@
 				C50767032FDA7B52004EF448 /* SQLiteDataDatabase+TriggerTests.swift in Sources */,
 				C522FB992FCC019100E61800 /* PasteboardAvailableTypeTests.swift in Sources */,
 				C57100012FCAE00000C8F965 /* SnippetRepositoryTests.swift in Sources */,
+				C5E002072FFFF00700E00007 /* HistoryCryptoTests.swift in Sources */,
 			);
 		};
 /* End PBXSourcesBuildPhase section */

@@ -70,34 +70,74 @@ extension SQLiteDataMigratorTests {
 
     func expectV5Metadata(_ database: DatabaseQueue) throws {
         try database.read { database in
-            let metadata = try #sql(
+            let mode = try #sql(
                 """
-                SELECT "mode", "formatVersion", "keyID", "keyCheck", "cleanupGeneration"
+                SELECT "mode"
                 FROM "historySecurityMetadata"
                 WHERE "id" = 1
                 """,
-                as: (String, Int, String?, Data?, Int).self
+                as: String.self
             )
-            .fetchOne(database)
-
-            #expect(metadata?.0 == "plaintext")
-            #expect(metadata?.1 == 1)
-            #expect(metadata?.2 == nil)
-            #expect(metadata?.3 == nil)
-            #expect(metadata?.4 == 0)
-
-            let databaseID = try #require(
-                #sql(
-                    """
-                    SELECT "databaseID"
-                    FROM "historySecurityMetadata"
-                    WHERE "id" = 1
-                    """,
-                    as: String.self
-                )
-                .fetchOne(database)
+            .fetchAll(database)
+            .first
+            let formatVersion = try #sql(
+                """
+                SELECT "formatVersion"
+                FROM "historySecurityMetadata"
+                WHERE "id" = 1
+                """,
+                as: Int.self
             )
-            #expect(UUID(uuidString: databaseID) != nil)
+            .fetchAll(database)
+            .first
+            let keyIDs = try #sql(
+                """
+                SELECT "keyID"
+                FROM "historySecurityMetadata"
+                WHERE "id" = 1
+                AND "keyID" IS NOT NULL
+                """,
+                as: String.self
+            )
+            .fetchAll(database)
+            let keyChecks = try #sql(
+                """
+                SELECT "keyCheck"
+                FROM "historySecurityMetadata"
+                WHERE "id" = 1
+                AND "keyCheck" IS NOT NULL
+                """,
+                as: Data.self
+            )
+            .fetchAll(database)
+            let cleanupGeneration = try #sql(
+                """
+                SELECT "cleanupGeneration"
+                FROM "historySecurityMetadata"
+                WHERE "id" = 1
+                """,
+                as: Int.self
+            )
+            .fetchAll(database)
+            .first
+
+            #expect(mode == "plaintext")
+            #expect(formatVersion == 1)
+            #expect(keyIDs == [])
+            #expect(keyChecks == [])
+            #expect(cleanupGeneration == 0)
+
+            let databaseID = try #sql(
+                """
+                SELECT "databaseID"
+                FROM "historySecurityMetadata"
+                WHERE "id" = 1
+                """,
+                as: String.self
+            )
+            .fetchAll(database)
+            .first
+            #expect(databaseID.flatMap(UUID.init(uuidString:)) != nil)
         }
     }
 
@@ -132,24 +172,38 @@ extension SQLiteDataMigratorTests {
 
     func expectV5PreservesPlaintextHistory(_ database: DatabaseQueue) throws {
         try database.read { database in
-            let history = try #require(PasteboardHistory.find(PasteboardHistory.ID(rawValue: "history-1")).fetchOne(database))
-            #expect(history.title == "Plaintext Title")
-            #expect(history.ocrText == "Plaintext OCR")
-            #expect(history.pasteboardTypes == [.string])
-            #expect(history.createdAt == 1)
-            #expect(history.updateAt == 2)
+            let history = try PasteboardHistory
+                .find(PasteboardHistory.ID(rawValue: "history-1"))
+                .fetchAll(database)
+                .first
+            #expect(history?.title == "Plaintext Title")
+            #expect(history?.ocrText == "Plaintext OCR")
+            #expect(history?.pasteboardTypes == [.string])
+            #expect(history?.createdAt == 1)
+            #expect(history?.updateAt == 2)
 
-            let rawData = try #sql(
+            let titleData = try #sql(
                 """
-                SELECT "titleData", "ocrTextData"
+                SELECT "titleData"
                 FROM "pasteboardHistories"
                 WHERE "id" = 'history-1'
                 """,
-                as: (Data, Data?).self
+                as: Data.self
             )
-            .fetchOne(database)
-            #expect(rawData?.0 == Data("Plaintext Title".utf8))
-            #expect(rawData?.1 == Data("Plaintext OCR".utf8))
+            .fetchAll(database)
+            .first
+            let ocrTextData = try #sql(
+                """
+                SELECT "ocrTextData"
+                FROM "pasteboardHistories"
+                WHERE "id" = 'history-1'
+                """,
+                as: Data.self
+            )
+            .fetchAll(database)
+            .first
+            #expect(titleData == Data("Plaintext Title".utf8))
+            #expect(ocrTextData == Data("Plaintext OCR".utf8))
         }
     }
 

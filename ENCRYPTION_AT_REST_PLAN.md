@@ -642,7 +642,7 @@ Every milestone is complete only when:
 **Objective:** Introduce the permanent storage shape and security metadata
 without enabling encryption or changing user-visible behavior.
 
-**Status (2026-07-12):** Implementation ready for CI verification.
+**Status (2026-07-12):** Implemented and committed in `9c0ab76`.
 
 - Added V5 migration for HistorySecurityMetadata, BLOB-backed titleData and
   ocrTextData, and removal of history FTS tables/triggers.
@@ -652,10 +652,12 @@ without enabling encryption or changing user-visible behavior.
   MenuManager to it.
 - Added/updated migration, trigger, and repository tests for this milestone.
 - Locally verified project-file syntax with plutil, Swift diff hygiene with
-  git diff --check, and the raw V5 SQLite migration sequence with sqlite3.
-- Full xcodebuild test verification is blocked on this machine because the
-  installed Xcode 26.1.1 cannot open the repo's objectVersion 100 project file;
-  CI's pinned Xcode 26.5 remains required for the final acceptance gate.
+  git diff --check, the raw V5 SQLite migration sequence with sqlite3, and the
+  full Xcode test suite using Xcode 26.5 via xcrun.
+- Current verification command:
+  `xcrun xcodebuild CODE_SIGN_IDENTITY=- CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO -scheme Clipy -project Clipy.xcodeproj -derivedDataPath /private/tmp/clipy-derived -skipPackagePluginValidation -skipMacroValidation test`.
+- Test result: 93 tests in 15 suites passed. Remaining build warnings are
+  unrelated pre-existing SwiftLint/deprecation warnings.
 
 **Depends on:** Nothing.
 
@@ -704,6 +706,18 @@ schema. No encryption code is reachable yet.
 
 **Objective:** Build and verify context-bound encryption and keyed
 fingerprinting without persistence or Keychain integration.
+
+**Status (2026-07-12):** Implemented and verified.
+
+- Added standalone Security primitives for canonical encryption context
+  encoding, versioned envelope parsing/serialization, HKDF-SHA256 subkey
+  derivation, AES-GCM sealing/opening, and HMAC-SHA256 encrypted-mode
+  fingerprint IDs.
+- Added focused unit coverage for context binding, envelope tampering and
+  malformed inputs, nonce uniqueness across 10,000 encryptions, separated
+  subkeys, and HMAC fingerprint stability/difference behavior.
+- Verified with the full Xcode test suite using the command listed in
+  Milestone 0; 93 tests in 15 suites passed.
 
 **Depends on:** Milestone 0.
 
