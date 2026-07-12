@@ -194,8 +194,12 @@ private extension MenuManager {
         historyMenu = NSMenu(title: Constants.Menu.history)
         snippetMenu = NSMenu(title: Constants.Menu.snippet)
 
-        addHistoryItems(clipMenu!)
-        addHistoryItems(historyMenu!)
+        // One snapshot feeds both history-bearing menus so they never fetch or
+        // decrypt the same rows separately, and so a preference change cannot
+        // split a render across two configurations.
+        let snapshot = makeHistorySnapshot()
+        installHistorySection(into: clipMenu!, session: mainMenuSession, snapshot: snapshot)
+        installHistorySection(into: historyMenu!, session: historyMenuSession, snapshot: snapshot)
 
         addSnippetItems(clipMenu!, separateMenu: true, details: snippetFolderDetails)
         addSnippetItems(snippetMenu!, separateMenu: false, details: snippetFolderDetails)
@@ -211,11 +215,17 @@ private extension MenuManager {
         clipMenu?.addItem(NSMenuItem.separator())
         clipMenu?.addItem(NSMenuItem(title: String(localized: "Quit Clipy"), action: #selector(AppDelegate.terminate)))
 
-        // Install the search field as the first item and take over menu delegation.
-        mainMenuSession.attach(to: clipMenu!)
-        historyMenuSession.attach(to: historyMenu!)
-
         statusBarItem.menu = clipMenu
+    }
+
+    func installHistorySection(into menu: NSMenu, session: HistoryMenuSessionController, snapshot: HistoryMenuSnapshot) {
+        session.install(
+            into: menu,
+            snapshot: snapshot,
+            action: #selector(AppDelegate.selectClipMenuItem(_:)),
+            target: nil,
+            folderIcon: folderIcon
+        )
     }
 
     func menuItemTitle(_ title: String, listNumber: NSInteger, isMarkWithNumber: Bool) -> String {
@@ -233,23 +243,12 @@ private extension MenuManager {
 
 // MARK: - Clips
 private extension MenuManager {
-    func addHistoryItems(_ menu: NSMenu) {
+    /// Builds one immutable snapshot of history details plus presentation
+    /// preferences, fetching/decoding history exactly once.
+    func makeHistorySnapshot() -> HistoryMenuSnapshot {
         let presentation = makeHistoryPresentation()
         let details = fetchHistoryDetails(presentation: presentation)
-
-        // History title
-        let labelItem = NSMenuItem(title: String(localized: "History"), action: nil)
-        labelItem.isEnabled = false
-        menu.addItem(labelItem)
-
-        // History (rendered through the shared, deterministic renderer)
-        let renderer = HistoryMenuRenderer(
-            presentation: presentation,
-            action: #selector(AppDelegate.selectClipMenuItem(_:)),
-            target: nil,
-            folderIcon: presentation.showsFolderIcon ? folderIcon : nil
-        )
-        renderer.makeHistoryItems(details).forEach { menu.addItem($0) }
+        return HistoryMenuSnapshot(details: details, presentation: presentation)
     }
 
     /// Captures the current menu presentation preferences into an immutable value.
