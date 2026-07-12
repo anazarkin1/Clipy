@@ -766,6 +766,20 @@ tamper/context-substitution tests pass.
 **Objective:** Store the master key correctly and establish a fail-closed,
 authoritative startup state before any history service runs.
 
+**Status (2026-07-12):** Implemented and verified.
+
+- Added Data Protection Keychain query construction and live key-store
+  operations with typed Security framework status mapping.
+- Added explicit `KeyStatus`, `HistoryLockState`, key-check creation/
+  verification, and a bootstrap service that reconciles metadata with Keychain
+  inventory before history services start.
+- Wired startup so Realm history import runs only in stable plaintext mode;
+  snippet import remains independent.
+- Wired app launch so clipboard capture, history menus, screenshot capture, and
+  history pruning only start when the bootstrap state allows history services.
+- Verified with the full Xcode test suite using Xcode 26.5 via xcrun.
+  Test result: 105 tests in 18 suites passed.
+
 **Depends on:** Milestones 0 and 1.
 
 **In scope:**

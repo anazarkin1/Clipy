@@ -158,4 +158,52 @@ final class DatabaseMigrationTests {
             )
         }
     }
+
+    @Test
+    func migrateFromRealmCanSkipHistoryImportWhileMigratingSnippets() throws {
+        let realm = try Realm(configuration: realmConfiguration)
+
+        let data = CPYClipData()
+        data.types = [.deprecatedString]
+        data.stringValue = "Blocked history"
+        let dataURL = temporaryDirectoryURL.appending(path: UUID().uuidString)
+        NSKeyedArchiver.archiveRootObject(data, toFile: dataURL.path())
+
+        let clip = CPYClip()
+        clip.dataPath = dataURL.path()
+        clip.title = "Blocked history"
+        clip.dataHash = "blocked"
+        clip.updateTime = 1
+
+        let folderID = UUID()
+        let folder = CPYFolder()
+        folder.identifier = folderID.uuidString
+        folder.title = "Safe snippets"
+        folder.index = 0
+        folder.enable = true
+
+        try realm.write {
+            realm.add(clip)
+            realm.add(folder)
+        }
+
+        migration.migrateFromRealmToSQLiteData(includeHistories: false)
+
+        try database.read { database in
+            let histories = try PasteboardHistory.all.fetchAll(database)
+            let folders = try SnippetFolder.all.fetchAll(database)
+
+            #expect(histories == [])
+            #expect(
+                folders == [
+                    SnippetFolder(
+                        id: SnippetFolder.ID(rawValue: folderID),
+                        title: "Safe snippets",
+                        index: 0,
+                        isEnabled: true
+                    )
+                ]
+            )
+        }
+    }
 }

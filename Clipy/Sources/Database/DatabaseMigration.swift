@@ -21,17 +21,19 @@ struct DatabaseMigration {
     @Dependency(\.realmConfiguration)
     private var realmConfiguration
 
-    func migrateFromRealmToSQLiteData() {
+    func migrateFromRealmToSQLiteData(includeHistories: Bool = true) {
         guard let realm = realm() else { return }
 
-        let histories = migratePasteboardHistories(from: realm)
+        let histories = includeHistories ? migratePasteboardHistories(from: realm) : ([], [], [])
         let snippets = migrateSnippets(from: realm)
 
         withErrorReporting {
             try database.write { database in
-                try PasteboardHistory.upsert { histories.0 }.execute(database)
-                try PasteboardHistoryAsset.upsert { histories.1 }.execute(database)
-                try PasteboardHistoryThumbnailAsset.upsert { histories.2 }.execute(database)
+                if includeHistories {
+                    try PasteboardHistory.upsert { histories.0 }.execute(database)
+                    try PasteboardHistoryAsset.upsert { histories.1 }.execute(database)
+                    try PasteboardHistoryThumbnailAsset.upsert { histories.2 }.execute(database)
+                }
 
                 try SnippetFolder.upsert { snippets.0 }.execute(database)
                 try Snippet.upsert { snippets.1 }.execute(database)

@@ -60,6 +60,13 @@
 		C5E002052FFFF00500E00005 /* EncryptionEnvelope.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5E002012FFFF00100E00001 /* EncryptionEnvelope.swift */; };
 		C5E002062FFFF00600E00006 /* HistoryCrypto.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5E002022FFFF00200E00002 /* HistoryCrypto.swift */; };
 		C5E002072FFFF00700E00007 /* HistoryCryptoTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5E002032FFFF00300E00003 /* HistoryCryptoTests.swift */; };
+		C5E003102FFFF11000E00010 /* EncryptionKeyStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5E003002FFFF10000E00000 /* EncryptionKeyStore.swift */; };
+		C5E003112FFFF11100E00011 /* HistoryKeyCheck.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5E003012FFFF10100E00001 /* HistoryKeyCheck.swift */; };
+		C5E003122FFFF11200E00012 /* HistoryLockState.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5E003022FFFF10200E00002 /* HistoryLockState.swift */; };
+		C5E003132FFFF11300E00013 /* HistorySecurityBootstrap.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5E003032FFFF10300E00003 /* HistorySecurityBootstrap.swift */; };
+		C5E003142FFFF11400E00014 /* EncryptionKeyStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5E003042FFFF10400E00004 /* EncryptionKeyStoreTests.swift */; };
+		C5E003152FFFF11500E00015 /* HistoryKeyCheckTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5E003052FFFF10500E00005 /* HistoryKeyCheckTests.swift */; };
+		C5E003162FFFF11600E00016 /* HistorySecurityBootstrapTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5E003062FFFF10600E00006 /* HistorySecurityBootstrapTests.swift */; };
 		C5D76D9E2FBA939E0083839F /* RxCocoa in Frameworks */ = {isa = PBXBuildFile; productRef = C5D76D9D2FBA939E0083839F /* RxCocoa */; };
 		C5D76DA02FBA939E0083839F /* RxSwift in Frameworks */ = {isa = PBXBuildFile; productRef = C5D76D9F2FBA939E0083839F /* RxSwift */; };
 		C5D76DA52FBA98A90083839F /* AEXML in Frameworks */ = {isa = PBXBuildFile; productRef = C5D76DA42FBA98A90083839F /* AEXML */; };
@@ -226,6 +233,13 @@
 		C5E002012FFFF00100E00001 /* EncryptionEnvelope.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EncryptionEnvelope.swift; sourceTree = "<group>"; };
 		C5E002022FFFF00200E00002 /* HistoryCrypto.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryCrypto.swift; sourceTree = "<group>"; };
 		C5E002032FFFF00300E00003 /* HistoryCryptoTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryCryptoTests.swift; sourceTree = "<group>"; };
+		C5E003002FFFF10000E00000 /* EncryptionKeyStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EncryptionKeyStore.swift; sourceTree = "<group>"; };
+		C5E003012FFFF10100E00001 /* HistoryKeyCheck.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryKeyCheck.swift; sourceTree = "<group>"; };
+		C5E003022FFFF10200E00002 /* HistoryLockState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryLockState.swift; sourceTree = "<group>"; };
+		C5E003032FFFF10300E00003 /* HistorySecurityBootstrap.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistorySecurityBootstrap.swift; sourceTree = "<group>"; };
+		C5E003042FFFF10400E00004 /* EncryptionKeyStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EncryptionKeyStoreTests.swift; sourceTree = "<group>"; };
+		C5E003052FFFF10500E00005 /* HistoryKeyCheckTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryKeyCheckTests.swift; sourceTree = "<group>"; };
+		C5E003062FFFF10600E00006 /* HistorySecurityBootstrapTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistorySecurityBootstrapTests.swift; sourceTree = "<group>"; };
 		C5E8EE632FFA260200270F1F /* PasteboardHistoryExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PasteboardHistoryExtensions.swift; sourceTree = "<group>"; };
 		C5E8EE672FFA28D900270F1F /* StringExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StringExtensions.swift; sourceTree = "<group>"; };
 		C5E8EE692FFA2A5000270F1F /* SnippetExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnippetExtensions.swift; sourceTree = "<group>"; };
@@ -604,7 +618,11 @@
 			children = (
 				C5E002002FFFF00000E00000 /* EncryptionContext.swift */,
 				C5E002012FFFF00100E00001 /* EncryptionEnvelope.swift */,
+				C5E003002FFFF10000E00000 /* EncryptionKeyStore.swift */,
 				C5E002022FFFF00200E00002 /* HistoryCrypto.swift */,
+				C5E003012FFFF10100E00001 /* HistoryKeyCheck.swift */,
+				C5E003022FFFF10200E00002 /* HistoryLockState.swift */,
+				C5E003032FFFF10300E00003 /* HistorySecurityBootstrap.swift */,
 			);
 			path = Security;
 			sourceTree = "<group>";
@@ -612,7 +630,10 @@
 		C5E002092FFFF00900E00009 /* Security */ = {
 			isa = PBXGroup;
 			children = (
+				C5E003042FFFF10400E00004 /* EncryptionKeyStoreTests.swift */,
 				C5E002032FFFF00300E00003 /* HistoryCryptoTests.swift */,
+				C5E003052FFFF10500E00005 /* HistoryKeyCheckTests.swift */,
+				C5E003062FFFF10600E00006 /* HistorySecurityBootstrapTests.swift */,
 			);
 			path = Security;
 			sourceTree = "<group>";
@@ -1034,7 +1055,11 @@
 				C5E001012FFFF00100E00001 /* SQLiteDataMigrator+V5.swift in Sources */,
 				C5E002042FFFF00400E00004 /* EncryptionContext.swift in Sources */,
 				C5E002052FFFF00500E00005 /* EncryptionEnvelope.swift in Sources */,
+				C5E003102FFFF11000E00010 /* EncryptionKeyStore.swift in Sources */,
 				C5E002062FFFF00600E00006 /* HistoryCrypto.swift in Sources */,
+				C5E003112FFFF11100E00011 /* HistoryKeyCheck.swift in Sources */,
+				C5E003122FFFF11200E00012 /* HistoryLockState.swift in Sources */,
+				C5E003132FFFF11300E00013 /* HistorySecurityBootstrap.swift in Sources */,
 				FA3778951F3B6920003B5BAB /* Environment.swift in Sources */,
 			);
 		};
@@ -1062,6 +1087,9 @@
 				C522FB992FCC019100E61800 /* PasteboardAvailableTypeTests.swift in Sources */,
 				C57100012FCAE00000C8F965 /* SnippetRepositoryTests.swift in Sources */,
 				C5E002072FFFF00700E00007 /* HistoryCryptoTests.swift in Sources */,
+				C5E003142FFFF11400E00014 /* EncryptionKeyStoreTests.swift in Sources */,
+				C5E003152FFFF11500E00015 /* HistoryKeyCheckTests.swift in Sources */,
+				C5E003162FFFF11600E00016 /* HistorySecurityBootstrapTests.swift in Sources */,
 			);
 		};
 /* End PBXSourcesBuildPhase section */

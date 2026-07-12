@@ -162,22 +162,25 @@ extension AppDelegate: NSApplicationDelegate {
         bind()
 
         // Services
-        AppEnvironment.current.clipService.startMonitoring()
         AppEnvironment.current.excludeAppService.startMonitoring()
         AppEnvironment.current.hotKeyService.setupDefaultHotKeys()
 
-        // Managers
-        AppEnvironment.current.menuManager.setup()
-        // Screenshot
-        screenshotObserver.delegate = self
+        if HistorySecurityBootstrap.startupState.allowsHistoryServices {
+            AppEnvironment.current.clipService.startMonitoring()
 
-        // Clean histories every 30 minutes
-        Observable<Int>.interval(.seconds(60 * 30), scheduler: historyPruningScheduler)
-            .subscribe(onNext: { [weak self] _ in
-                let maxHistorySize = AppEnvironment.current.defaults.integer(forKey: Constants.UserDefaults.maxHistorySize)
-                self?.pasteboardHistoryRepository.deleteOverflowingHistories(maxHistorySize: maxHistorySize)
-            })
-            .disposed(by: disposeBag)
+            // Managers
+            AppEnvironment.current.menuManager.setup()
+            // Screenshot
+            screenshotObserver.delegate = self
+
+            // Clean histories every 30 minutes
+            Observable<Int>.interval(.seconds(60 * 30), scheduler: historyPruningScheduler)
+                .subscribe(onNext: { [weak self] _ in
+                    let maxHistorySize = AppEnvironment.current.defaults.integer(forKey: Constants.UserDefaults.maxHistorySize)
+                    self?.pasteboardHistoryRepository.deleteOverflowingHistories(maxHistorySize: maxHistorySize)
+                })
+                .disposed(by: disposeBag)
+        }
     }
 
 }
@@ -220,6 +223,7 @@ private extension AppDelegate {
 // MARK: - ScreenShotObserver Delegate
 extension AppDelegate: ScreenShotObserverDelegate {
     func screenShotObserver(_ observer: ScreenShotObserver, addedItem item: NSMetadataItem) {
+        guard HistorySecurityBootstrap.startupState.allowsHistoryServices else { return }
         guard let path = item.value(forAttribute: NSMetadataItemPathKey) as? String else { return }
         guard let image = NSImage(contentsOfFile: path) else { return }
         AppEnvironment.current.clipService.create(with: image)
