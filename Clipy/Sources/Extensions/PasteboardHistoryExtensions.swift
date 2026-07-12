@@ -15,19 +15,24 @@ import Dependencies
 import Sharing
 
 extension PasteboardHistory {
-    var typedTitle: String {
+    /// The visible type prefix produced for image, PDF, and file histories, or
+    /// `nil` for plain text. Exposed so search can match the same caller-facing
+    /// string the menu renders.
+    var typePrefix: String? {
         let primaryType = pasteboardTypes.first
-        let prefix: String?
         if primaryType == .png || primaryType == .tiff || primaryType == .deprecatedTIFF {
-            prefix = "(Image)"
+            return "(Image)"
         } else if primaryType == .pdf || primaryType == .deprecatedPDF {
-            prefix = "(PDF)"
+            return "(PDF)"
         } else if primaryType == .fileURL || primaryType == .deprecatedFilenames {
-            prefix = "(Files)"
+            return "(Files)"
         } else {
-            prefix = nil
+            return nil
         }
-        return [prefix, title.trimmedMenuTitle]
+    }
+
+    var typedTitle: String {
+        return [typePrefix, title.trimmedMenuTitle]
             .compactMap { $0 }
             .filter { !$0.isEmpty }
             .joined(separator: " ")

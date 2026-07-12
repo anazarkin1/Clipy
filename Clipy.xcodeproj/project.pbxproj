@@ -7,6 +7,10 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		C5E0F6010000000000000023 /* HistoryMenuSnapshotTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5E0F6010000000000000022 /* HistoryMenuSnapshotTests.swift */; };
+		C5E0F6010000000000000021 /* HistorySearchMatcherTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5E0F6010000000000000020 /* HistorySearchMatcherTests.swift */; };
+		C5E0F5010000000000000023 /* HistoryMenuSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5E0F5010000000000000022 /* HistoryMenuSnapshot.swift */; };
+		C5E0F5010000000000000021 /* HistorySearchMatcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5E0F5010000000000000020 /* HistorySearchMatcher.swift */; };
 		C5E0F6010000000000000011 /* HistoryMenuSessionControllerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5E0F6010000000000000010 /* HistoryMenuSessionControllerTests.swift */; };
 		C5E0F5010000000000000013 /* HistoryMenuSessionController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5E0F5010000000000000012 /* HistoryMenuSessionController.swift */; };
 		C5E0F5010000000000000011 /* HistorySearchFieldView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5E0F5010000000000000010 /* HistorySearchFieldView.swift */; };
@@ -156,6 +160,10 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		C5E0F6010000000000000022 /* HistoryMenuSnapshotTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HistoryMenuSnapshotTests.swift"; sourceTree = "<group>"; };
+		C5E0F6010000000000000020 /* HistorySearchMatcherTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HistorySearchMatcherTests.swift"; sourceTree = "<group>"; };
+		C5E0F5010000000000000022 /* HistoryMenuSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HistoryMenuSnapshot.swift"; sourceTree = "<group>"; };
+		C5E0F5010000000000000020 /* HistorySearchMatcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HistorySearchMatcher.swift"; sourceTree = "<group>"; };
 		C5E0F6010000000000000010 /* HistoryMenuSessionControllerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HistoryMenuSessionControllerTests.swift"; sourceTree = "<group>"; };
 		C5E0F5010000000000000012 /* HistoryMenuSessionController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HistoryMenuSessionController.swift"; sourceTree = "<group>"; };
 		C5E0F5010000000000000010 /* HistorySearchFieldView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HistorySearchFieldView.swift"; sourceTree = "<group>"; };
@@ -577,6 +585,7 @@
 		FA1DB49C1DDCB3FB007F95C8 /* Sources */ = {
 			isa = PBXGroup;
 			children = (
+				C5E0F5000000000000000003 /* Search */,
 				C5E0F5000000000000000002 /* Menus */,
 				C57447262FD09FD9000D64D3 /* Dependencies */,
 				C54C29D32FC3E1F500EF30FB /* Database */,
@@ -810,6 +819,7 @@
 		FAC43DDB1B35D8B100C06102 /* ClipyTests */ = {
 			isa = PBXGroup;
 			children = (
+				C5E0F6000000000000000003 /* Search */,
 				C5E0F6000000000000000002 /* Menus */,
 				C5348FAF30008FDF008DFEB3 /* TestSupport */,
 				C5700B472FC5C0DB00C8F965 /* Database */,
@@ -836,6 +846,7 @@
 		C5E0F5000000000000000002 /* Menus */ = {
 			isa = PBXGroup;
 			children = (
+				C5E0F5010000000000000022 /* HistoryMenuSnapshot.swift */,
 				C5E0F5010000000000000012 /* HistoryMenuSessionController.swift */,
 				C5E0F5010000000000000010 /* HistorySearchFieldView.swift */,
 			);
@@ -845,9 +856,26 @@
 		C5E0F6000000000000000002 /* Menus */ = {
 			isa = PBXGroup;
 			children = (
+				C5E0F6010000000000000022 /* HistoryMenuSnapshotTests.swift */,
 				C5E0F6010000000000000010 /* HistoryMenuSessionControllerTests.swift */,
 			);
 			path = Menus;
+			sourceTree = "<group>";
+		};
+		C5E0F5000000000000000003 /* Search */ = {
+			isa = PBXGroup;
+			children = (
+				C5E0F5010000000000000020 /* HistorySearchMatcher.swift */,
+			);
+			path = Search;
+			sourceTree = "<group>";
+		};
+		C5E0F6000000000000000003 /* Search */ = {
+			isa = PBXGroup;
+			children = (
+				C5E0F6010000000000000020 /* HistorySearchMatcherTests.swift */,
+			);
+			path = Search;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -1030,6 +1058,8 @@
 		FAC43DC21B35D8B100C06102 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			files = (
+				C5E0F5010000000000000023 /* HistoryMenuSnapshot.swift in Sources */,
+				C5E0F5010000000000000021 /* HistorySearchMatcher.swift in Sources */,
 				C5E0F5010000000000000013 /* HistoryMenuSessionController.swift in Sources */,
 				C5E0F5010000000000000011 /* HistorySearchFieldView.swift in Sources */,
 				FAC0DCEF1DE3255E00309C49 /* NSImage+NSColor.swift in Sources */,
@@ -1107,6 +1137,8 @@
 		FAC43DD41B35D8B100C06102 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			files = (
+				C5E0F6010000000000000023 /* HistoryMenuSnapshotTests.swift in Sources */,
+				C5E0F6010000000000000021 /* HistorySearchMatcherTests.swift in Sources */,
 				C5E0F6010000000000000011 /* HistoryMenuSessionControllerTests.swift in Sources */,
 				C5700B502FD106000C8F965 /* DatabaseMigrationTests.swift in Sources */,
 				C5700B492FC5C0E500C8F965 /* SQLiteDataMigratorTests.swift in Sources */,
