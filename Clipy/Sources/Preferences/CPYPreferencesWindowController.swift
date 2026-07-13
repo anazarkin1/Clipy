@@ -25,6 +25,7 @@ final class CPYPreferencesWindowController: NSWindowController {
     @IBOutlet private weak var shortcutsImageView: NSImageView!
     @IBOutlet private weak var updatesImageView: NSImageView!
     @IBOutlet private weak var betaImageView: NSImageView!
+    private weak var securityImageView: NSImageView?
     // Labels
     @IBOutlet private weak var generalTextField: NSTextField!
     @IBOutlet private weak var menuTextField: NSTextField!
@@ -107,6 +108,8 @@ private extension CPYPreferencesWindowController {
         shortcutsImageView.image = NSImage(resource: .prefShortcut)
         updatesImageView.image = NSImage(resource: .prefUpdate)
         betaImageView.image = NSImage(resource: .prefBeta)
+        securityImageView?.image = securityIconImage()
+        securityImageView?.contentTintColor = NSColor(resource: .tabTitle)
 
         generalTextField.textColor = NSColor(resource: .tabTitle)
         menuTextField.textColor = NSColor(resource: .tabTitle)
@@ -144,6 +147,7 @@ private extension CPYPreferencesWindowController {
             betaImageView.image = NSImage(resource: .prefBetaOn)
             betaTextField.textColor = NSColor(resource: .clipy)
         case 7:
+            securityImageView?.contentTintColor = NSColor(resource: .clipy)
             securityTextField?.textColor = NSColor(resource: .clipy)
         default: break
         }
@@ -151,30 +155,53 @@ private extension CPYPreferencesWindowController {
 
     func addSecurityToolbarItem() {
         let horizontalOffset = betaButton.superview?.frame.maxX ?? 359
-        let container = NSView(frame: NSRect(x: horizontalOffset, y: 0, width: 70, height: 56))
+        let container = NSView(frame: NSRect(x: horizontalOffset, y: 0, width: 58, height: 56))
         container.translatesAutoresizingMaskIntoConstraints = true
         container.autoresizingMask = [.maxXMargin]
 
+        let icon = NSImageView(frame: NSRect(x: 11, y: 24, width: 36, height: 24))
+        icon.image = securityIconImage()
+        icon.imageScaling = .scaleProportionallyDown
+        icon.contentTintColor = NSColor(resource: .tabTitle)
+
         let label = NSTextField(labelWithString: String(localized: "Security"))
-        label.frame = NSRect(x: 3, y: 8, width: 64, height: 12)
+        label.frame = NSRect(x: 1, y: 8, width: 56, height: 12)
         label.alignment = .center
         label.font = NSFont(name: "HiraKakuProN-W6", size: 9) ?? NSFont.systemFont(ofSize: 9, weight: .semibold)
         label.textColor = NSColor(resource: .tabTitle)
 
         let button = NSButton(frame: container.bounds)
+        button.title = ""
         button.isBordered = false
+        button.bezelStyle = .shadowlessSquare
         button.tag = 7
         button.target = self
         button.action = #selector(toolBarItemTapped(_:))
         button.setButtonType(.momentaryChange)
         button.setAccessibilityLabel(String(localized: "Security Preferences"))
 
+        container.addSubview(icon)
         container.addSubview(label)
         container.addSubview(button)
         toolBar.addSubview(container)
         securityToolbarContainer = container
+        securityImageView = icon
         securityTextField = label
         securityButton = button
+    }
+
+    func securityIconImage() -> NSImage? {
+        let image = NSImage(
+            systemSymbolName: "lock.shield",
+            accessibilityDescription: String(localized: "Security")
+        ) ?? NSImage(
+            systemSymbolName: "lock",
+            accessibilityDescription: String(localized: "Security")
+        )
+        let symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 22, weight: .regular)
+        let configuredImage = image?.withSymbolConfiguration(symbolConfiguration) ?? image
+        configuredImage?.isTemplate = true
+        return configuredImage
     }
 
     func switchView(_ index: Int) {
