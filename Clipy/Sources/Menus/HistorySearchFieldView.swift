@@ -45,7 +45,11 @@ final class HistorySearchFieldView: NSView, NSSearchFieldDelegate {
     let searchField = NSSearchField()
     weak var delegate: HistorySearchFieldViewDelegate?
     private let currentKeyboardInputSourceIdentifier: () -> NSTextInputSourceIdentifier?
+    private let caretView = HistorySearchCaretView()
     private var keyboardSelectionObserver: NSObjectProtocol?
+    private var textSelectionObserver: NSObjectProtocol?
+    private var caretBlinkTimer: Timer?
+    private var caretIsVisible = true
 
     /// Whether the field editor currently holds uncommitted marked text (an
     /// in-progress IME composition). Used to avoid announcing intermediate
@@ -83,6 +87,10 @@ final class HistorySearchFieldView: NSView, NSSearchFieldDelegate {
         if let keyboardSelectionObserver {
             NotificationCenter.default.removeObserver(keyboardSelectionObserver)
         }
+        if let textSelectionObserver {
+            NotificationCenter.default.removeObserver(textSelectionObserver)
+        }
+        caretBlinkTimer?.invalidate()
     }
 
     private func setupSearchField() {
@@ -97,6 +105,7 @@ final class HistorySearchFieldView: NSView, NSSearchFieldDelegate {
         (searchField.cell as? NSSearchFieldCell)?.cancelButtonCell?.target = self
         (searchField.cell as? NSSearchFieldCell)?.cancelButtonCell?.action = #selector(cancelButtonClicked(_:))
         addSubview(searchField)
+        setupCaretView()
         NSLayoutConstraint.activate([
             searchField.leadingAnchor.constraint(equalTo: leadingAnchor, constant: Self.horizontalInset),
             searchField.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -Self.horizontalInset),
@@ -116,6 +125,8 @@ final class HistorySearchFieldView: NSView, NSSearchFieldDelegate {
         let didFocus = window.makeFirstResponder(searchField)
         if didFocus {
             searchField.currentEditor()?.selectedRange = NSRange(location: 0, length: searchField.stringValue.count)
+            applyActiveFieldEditorAppearance()
+            showCustomCaret()
         }
         return didFocus
     }
@@ -124,6 +135,7 @@ final class HistorySearchFieldView: NSView, NSSearchFieldDelegate {
     func reset() {
         searchField.stringValue = ""
         searchField.abortEditing()
+        hideCustomCaret()
     }
 
     @discardableResult
@@ -133,6 +145,7 @@ final class HistorySearchFieldView: NSView, NSSearchFieldDelegate {
             return false
         }
 
+        applyActiveFieldEditorAppearance(to: textView)
         if let inputSourceIdentifier = currentKeyboardInputSourceIdentifier() {
             inputContext.selectedKeyboardInputSource = inputSourceIdentifier
         }
@@ -143,12 +156,24 @@ final class HistorySearchFieldView: NSView, NSSearchFieldDelegate {
     // MARK: - Actions
     @objc private func cancelButtonClicked(_ sender: Any?) {
         searchField.stringValue = ""
+        showCustomCaret()
         delegate?.historySearchFieldViewDidCancel(self)
     }
 
     // MARK: - NSSearchFieldDelegate
+    func controlTextDidBeginEditing(_ obj: Notification) {
+        applyActiveFieldEditorAppearance()
+        showCustomCaret()
+    }
+
     func controlTextDidChange(_ obj: Notification) {
+        applyActiveFieldEditorAppearance()
+        showCustomCaret()
         delegate?.historySearchFieldView(self, didChangeQuery: searchField.stringValue)
+    }
+
+    func controlTextDidEndEditing(_ obj: Notification) {
+        hideCustomCaret()
     }
 
     func control(_ control: NSControl, textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
@@ -163,9 +188,129 @@ final class HistorySearchFieldView: NSView, NSSearchFieldDelegate {
             return false
         }
     }
+
+    override func layout() {
+        super.layout()
+        if !caretView.isHidden {
+            updateCustomCaretFrame()
+        }
+    }
 }
 
 private extension HistorySearchFieldView {
+    static let caretBlinkInterval: TimeInterval = 0.53
+    static let caretWidth: CGFloat = 2
+    static let caretHeight: CGFloat = 18
+
+    var activeFieldEditorInsertionPointColor: NSColor {
+        if searchField.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua {
+            return .white
+        }
+        return .black
+    }
+
+    func applyActiveFieldEditorAppearance() {
+        guard let textView = searchField.currentEditor() as? NSTextView else { return }
+        applyActiveFieldEditorAppearance(to: textView)
+    }
+
+    func applyActiveFieldEditorAppearance(to textView: NSTextView) {
+        textView.insertionPointColor = activeFieldEditorInsertionPointColor
+        textView.updateInsertionPointStateAndRestartTimer(true)
+    }
+
+    func setupCaretView() {
+        caretView.wantsLayer = true
+        caretView.layer?.cornerRadius = Self.caretWidth / 2
+        caretView.isHidden = true
+        addSubview(caretView)
+    }
+
+    func showCustomCaret() {
+        caretIsVisible = true
+        updateCustomCaretFrame()
+        startCaretBlinking()
+    }
+
+    func hideCustomCaret() {
+        caretBlinkTimer?.invalidate()
+        caretBlinkTimer = nil
+        caretIsVisible = false
+        caretView.isHidden = true
+    }
+
+    func startCaretBlinking() {
+        guard caretBlinkTimer == nil else { return }
+        let timer = Timer(timeInterval: Self.caretBlinkInterval, repeats: true) { [weak self] _ in
+            guard let self else { return }
+            self.caretIsVisible.toggle()
+            self.updateCustomCaretFrame()
+        }
+        caretBlinkTimer = timer
+        RunLoop.current.add(timer, forMode: .eventTracking)
+        RunLoop.current.add(timer, forMode: .default)
+    }
+
+    func updateCustomCaretFrame() {
+        guard let textView = searchField.currentEditor() as? NSTextView else {
+            caretView.isHidden = true
+            return
+        }
+
+        let selectedRange = textView.selectedRange()
+        guard selectedRange.length == 0 else {
+            caretView.isHidden = true
+            return
+        }
+
+        caretView.layer?.backgroundColor = activeFieldEditorInsertionPointColor.cgColor
+        caretView.frame = customCaretFrame(for: textView, selectedRange: selectedRange)
+        caretView.isHidden = !caretIsVisible
+    }
+
+    func customCaretFrame(for textView: NSTextView, selectedRange: NSRange) -> NSRect {
+        let range = NSRange(location: selectedRange.location, length: 0)
+        let editorRect = textView.firstRect(forCharacterRange: range, actualRange: nil)
+
+        if !editorRect.isEmpty, let window = searchField.window {
+            let rectInWindow = window.convertFromScreen(editorRect)
+            let rectInView = convert(rectInWindow, from: nil)
+            return normalizedCaretFrame(atX: rectInView.minX)
+        }
+
+        return fallbackCustomCaretFrame(for: textView, selectedRange: selectedRange)
+    }
+
+    func fallbackCustomCaretFrame(for textView: NSTextView, selectedRange: NSRange) -> NSRect {
+        let textRect = searchField.cell?.titleRect(forBounds: searchField.bounds)
+            ?? searchField.bounds.insetBy(dx: 30, dy: 5)
+        let safeLocation = min(max(selectedRange.location, 0), (searchField.stringValue as NSString).length)
+        let prefix = (searchField.stringValue as NSString).substring(to: safeLocation)
+        let font = textView.font ?? searchField.font ?? NSFont.systemFont(ofSize: NSFont.systemFontSize)
+        let prefixWidth = (prefix as NSString).size(withAttributes: [.font: font]).width
+        let caretPointInField = NSPoint(x: textRect.minX + prefixWidth, y: textRect.midY)
+        let caretPoint = convert(caretPointInField, from: searchField)
+        return normalizedCaretFrame(atX: caretPoint.x)
+    }
+
+    func normalizedCaretFrame(atX horizontalPosition: CGFloat) -> NSRect {
+        let minX = searchField.frame.minX + 30
+        let maxX = searchField.frame.maxX - 30
+        let clampedX = min(max(horizontalPosition, minX), maxX)
+        let height = min(Self.caretHeight, max(1, searchField.frame.height - 8))
+        return NSRect(
+            x: roundedForBackingScale(clampedX),
+            y: roundedForBackingScale(searchField.frame.midY - height / 2),
+            width: Self.caretWidth,
+            height: height
+        )
+    }
+
+    func roundedForBackingScale(_ value: CGFloat) -> CGFloat {
+        let scale = window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 2
+        return (value * scale).rounded() / scale
+    }
+
     func observeKeyboardSelectionChanges() {
         keyboardSelectionObserver = NotificationCenter.default.addObserver(
             forName: NSTextInputContext.keyboardSelectionDidChangeNotification,
@@ -181,6 +326,28 @@ private extension HistorySearchFieldView {
                 }
             }
         }
+
+        textSelectionObserver = NotificationCenter.default.addObserver(
+            forName: NSTextView.didChangeSelectionNotification,
+            object: nil,
+            queue: nil
+        ) { [weak self] notification in
+            guard let self,
+                  let textView = notification.object as? NSTextView else {
+                return
+            }
+            let currentEditor = self.searchField.currentEditor() as? NSTextView
+            guard textView === currentEditor else {
+                return
+            }
+            if Thread.isMainThread {
+                self.showCustomCaret()
+            } else {
+                DispatchQueue.main.async { [weak self] in
+                    self?.showCustomCaret()
+                }
+            }
+        }
     }
 
     static func currentKeyboardInputSourceIdentifier() -> NSTextInputSourceIdentifier? {
@@ -192,5 +359,11 @@ private extension HistorySearchFieldView {
         return Unmanaged<CFString>
             .fromOpaque(rawIdentifier)
             .takeUnretainedValue() as String
+    }
+}
+
+private final class HistorySearchCaretView: NSView {
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        nil
     }
 }
