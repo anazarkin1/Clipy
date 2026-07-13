@@ -13,6 +13,7 @@
 import AppKit
 import Dependencies
 import DependenciesTestSupport
+import Security
 import SQLiteData
 import Testing
 @testable import Clipy
@@ -108,6 +109,42 @@ struct LockManagerTests {
         #expect(HistorySecurityBootstrap.startupState == lockedState)
         clipService.create(with: NSImage.create(with: .blue, size: NSSize(width: 20, height: 20)))
         #expect(try rawHistoryCount() == 0)
+    }
+
+    @Test
+    func unlockIfLockedUnlocksEncryptedHistory() throws {
+        defer { HistorySecurityBootstrap.startupState = .plaintext }
+        let keyStore = TestLockKeyStore()
+        let coordinator = HistorySecurityCoordinator(keyStore: keyStore.store)
+        let lockedState = try coordinator.enableEncryption()
+        let keyID = try #require(lockedState.lockedKeyID)
+
+        let state = LockManager().unlockIfLocked(keyStore: keyStore.store)
+
+        #expect(state.unlockedKeyID == keyID)
+        #expect(HistorySecurityBootstrap.startupState.unlockedKeyID == keyID)
+    }
+
+    @Test
+    func unlockIfLockedSkipsNonLockedStates() {
+        defer { HistorySecurityBootstrap.startupState = .plaintext }
+        var didLoadKey = false
+        HistorySecurityBootstrap.startupState = .plaintext
+        let keyStore = EncryptionKeyStore(
+            addKey: { _, _ in },
+            loadKey: { _, _ in
+                didLoadKey = true
+                throw EncryptionKeyStoreError.unexpected(errSecInternalError)
+            },
+            deleteKey: { _ in },
+            inventoryKeyIDs: { [] }
+        )
+
+        let state = LockManager().unlockIfLocked(keyStore: keyStore)
+
+        #expect(state == .plaintext)
+        #expect(HistorySecurityBootstrap.startupState == .plaintext)
+        #expect(!didLoadKey)
     }
 }
 

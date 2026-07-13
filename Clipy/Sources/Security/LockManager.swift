@@ -80,6 +80,16 @@ final class LockManager {
         return newState
     }
 
+    @discardableResult
+    func unlockIfLocked(keyStore: EncryptionKeyStore = .live) -> HistoryLockState {
+        Self.stateLock.lock()
+        let state = HistorySecurityBootstrap.startupState
+        Self.stateLock.unlock()
+
+        guard case .locked = state else { return state }
+        return unlock(keyStore: keyStore)
+    }
+
     func recordUserActivity(at now: TimeInterval) {
         lastActivity = now
     }

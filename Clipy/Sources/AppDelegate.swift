@@ -85,7 +85,7 @@ class AppDelegate: NSObject, NSMenuItemValidation {
     }
 
     @objc func unlockHistory() {
-        _ = lockManager.unlock()
+        unlockHistoryIfNeeded()
     }
 
     @objc func clearInaccessibleHistory() {
@@ -135,6 +135,11 @@ class AppDelegate: NSObject, NSMenuItemValidation {
             AppEnvironment.current.defaults.synchronize()
         }
     }
+
+    @discardableResult
+    private func unlockHistoryIfNeeded() -> HistoryLockState {
+        lockManager.unlockIfLocked()
+    }
 }
 
 // MARK: - NSApplication Delegate
@@ -153,6 +158,7 @@ extension AppDelegate: NSApplicationDelegate {
         // Accessibility is checked lazily when paste automation is used.
         // Do not request the system prompt at launch: local ad-hoc rebuilds can
         // look like a different app to macOS TCC even when "Clipy" is enabled.
+        unlockHistoryIfNeeded()
 
         // Show Login Item
         if !AppEnvironment.current.defaults.bool(forKey: Constants.UserDefaults.loginItem) && !AppEnvironment.current.defaults.bool(forKey: Constants.UserDefaults.suppressAlertForLoginItem) {
@@ -190,6 +196,15 @@ extension AppDelegate: NSApplicationDelegate {
                 self?.pasteboardHistoryRepository.deleteOverflowingHistories(maxHistorySize: maxHistorySize)
             })
             .disposed(by: disposeBag)
+    }
+
+    func applicationDidBecomeActive(_ notification: Notification) {
+        unlockHistoryIfNeeded()
+    }
+
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        unlockHistoryIfNeeded()
+        return true
     }
 
 }
