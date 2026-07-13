@@ -191,17 +191,39 @@ private extension CPYPreferencesWindowController {
     }
 
     func securityIconImage() -> NSImage? {
-        let image = NSImage(
+        let imageSize = NSSize(width: 36, height: 24)
+        let image = NSImage(size: imageSize)
+        image.lockFocus()
+
+        NSColor.black.setStroke()
+        let borderPath = NSBezierPath(
+            roundedRect: NSRect(x: 0.5, y: 0.5, width: imageSize.width - 1, height: imageSize.height - 1),
+            xRadius: 3,
+            yRadius: 3
+        )
+        borderPath.lineWidth = 1
+        borderPath.stroke()
+
+        let symbol = NSImage(
             systemSymbolName: "lock.shield",
             accessibilityDescription: String(localized: "Security")
         ) ?? NSImage(
             systemSymbolName: "lock",
             accessibilityDescription: String(localized: "Security")
         )
-        let symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 22, weight: .regular)
-        let configuredImage = image?.withSymbolConfiguration(symbolConfiguration) ?? image
-        configuredImage?.isTemplate = true
-        return configuredImage
+        let symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 15, weight: .regular)
+        let configuredSymbol = symbol?.withSymbolConfiguration(symbolConfiguration) ?? symbol
+        configuredSymbol?.isTemplate = true
+        configuredSymbol?.draw(
+            in: NSRect(x: 9, y: 4, width: 18, height: 16),
+            from: .zero,
+            operation: .sourceOver,
+            fraction: 1
+        )
+
+        image.unlockFocus()
+        image.isTemplate = true
+        return image
     }
 
     func switchView(_ index: Int) {
