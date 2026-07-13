@@ -165,7 +165,7 @@ final class SecuritySettingsViewModel: ObservableObject {
         do {
             updateState(try operation())
         } catch {
-            statusMessage = String(localized: "History security update failed. Retry is safe.")
+            statusMessage = String(localized: "History security update failed: \(String(describing: error)). Retry is safe.")
         }
         isTransitioning = false
     }

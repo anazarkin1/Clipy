@@ -116,7 +116,7 @@ extension EncryptionKeyStore {
     static func makeAddQuery(keyID: UUID, keyData: Data) -> [String: Any] {
         var query = baseQuery(keyID: keyID)
         query[kSecValueData as String] = keyData
-        query[kSecAttrAccessControl as String] = makeAccessControl()
+        query[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlockedThisDeviceOnly
         return query
     }
 
@@ -154,25 +154,11 @@ extension EncryptionKeyStore {
     private static func baseQuery(keyID: UUID? = nil) -> [String: Any] {
         var query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecUseDataProtectionKeychain as String: true
+            kSecAttrService as String: service
         ]
         if let keyID {
             query[kSecAttrAccount as String] = account(for: keyID)
         }
         return query
-    }
-
-    private static func makeAccessControl() -> SecAccessControl {
-        var error: Unmanaged<CFError>?
-        guard let accessControl = SecAccessControlCreateWithFlags(
-            nil,
-            kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
-            [],
-            &error
-        ) else {
-            preconditionFailure("Unable to create history encryption key access control")
-        }
-        return accessControl
     }
 }

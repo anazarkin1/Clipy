@@ -116,6 +116,30 @@ struct HistorySecurityCoordinatorTests {
     }
 
     @Test
+    func keyCreationFailureRollsBackEnableTransition() throws {
+        defer { HistorySecurityBootstrap.startupState = .plaintext }
+        try seedPlaintextHistoryAndSnippet()
+        let keyStore = EncryptionKeyStore(
+            addKey: { _, _ in throw EncryptionKeyStoreError.unexpected(errSecMissingEntitlement) },
+            loadKey: { _, _ in throw EncryptionKeyStoreError.notFound },
+            deleteKey: { _ in },
+            inventoryKeyIDs: { [] }
+        )
+
+        do {
+            _ = try HistorySecurityCoordinator(keyStore: keyStore).enableEncryption()
+            Issue.record("Enable unexpectedly completed")
+        } catch EncryptionKeyStoreError.unexpected(errSecMissingEntitlement) {
+        }
+
+        #expect(try metadataMode() == .plaintext)
+        #expect(try metadataKeyID() == nil)
+        #expect(try rawHistoryCount() == 1)
+        #expect(try snippetCount() == 1)
+        #expect(HistorySecurityBootstrap.startupState == .plaintext)
+    }
+
+    @Test
     func transitionStateRejectsCaptureAndOCR() throws {
         defer { HistorySecurityBootstrap.startupState = .plaintext }
         try setMetadataMode(.enablingCleanup)
@@ -155,6 +179,24 @@ struct HistorySecurityCoordinatorTests {
         #expect(recoveredState.lockedKeyID != nil)
         #expect(try metadataMode() == .encrypted)
         #expect(try rawHistoryCount() == 0)
+        #expect(try snippetCount() == 1)
+    }
+
+    @Test
+    func interruptedEnableWithMissingKeyRollsBackToPlaintext() throws {
+        defer { HistorySecurityBootstrap.startupState = .plaintext }
+        let keyStore = TestKeyStore()
+        let missingKeyID = UUID()
+        try seedPlaintextHistoryAndSnippet()
+        try setEnablingCleanupMetadataWithMissingKey(keyID: missingKeyID)
+        HistorySecurityBootstrap.startupState = .transitioning(.enablingCleanup)
+
+        let recoveredState = try coordinator(keyStore: keyStore).recoverInterruptedTransition()
+
+        #expect(recoveredState == .plaintext)
+        #expect(try metadataMode() == .plaintext)
+        #expect(try metadataKeyID() == nil)
+        #expect(try rawHistoryCount() == 1)
         #expect(try snippetCount() == 1)
     }
 
@@ -270,6 +312,14 @@ private extension HistorySecurityCoordinatorTests {
     }
 
     func setEncryptedMetadataWithMissingKey(keyID: UUID) throws {
+        try setProtectedMetadata(mode: .encrypted, keyID: keyID)
+    }
+
+    func setEnablingCleanupMetadataWithMissingKey(keyID: UUID) throws {
+        try setProtectedMetadata(mode: .enablingCleanup, keyID: keyID)
+    }
+
+    func setProtectedMetadata(mode: HistorySecurityMode, keyID: UUID) throws {
         let keyData = Data(repeating: 0x71, count: 32)
         let databaseID = UUID()
         let keyCheck = HistoryKeyCheck.make(rootKey: keyData, keyID: keyID, databaseID: databaseID)
@@ -278,7 +328,7 @@ private extension HistorySecurityCoordinatorTests {
                 """
                 UPDATE "historySecurityMetadata"
                 SET
-                  "mode" = 'encrypted',
+                  "mode" = \(bind: mode.rawValue),
                   "databaseID" = \(bind: databaseID.uuidString),
                   "keyID" = \(bind: keyID.uuidString),
                   "keyCheck" = \(bind: keyCheck)

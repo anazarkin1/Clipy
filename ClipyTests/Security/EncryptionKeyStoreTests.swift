@@ -18,7 +18,7 @@ import Testing
 @Suite
 struct EncryptionKeyStoreTests {
     @Test
-    func keychainQueriesUseDataProtectionKeychain() {
+    func keychainQueriesUseThisDeviceOnlyGenericPasswordItems() {
         let keyID = UUID()
         let keyData = Data(repeating: 0xa5, count: 32)
 
@@ -28,14 +28,15 @@ struct EncryptionKeyStoreTests {
         let inventoryQuery = EncryptionKeyStore.makeInventoryQuery()
 
         for query in [addQuery, loadQuery, deleteQuery, inventoryQuery] {
-            #expect(query[kSecUseDataProtectionKeychain as String] as? Bool == true)
+            #expect(query[kSecUseDataProtectionKeychain as String] == nil)
             #expect(query[kSecClass as String] as? String == kSecClassGenericPassword as String)
             #expect(query[kSecAttrService as String] as? String == EncryptionKeyStore.service)
         }
 
         #expect(addQuery[kSecAttrAccount as String] as? String == EncryptionKeyStore.account(for: keyID))
         #expect(addQuery[kSecValueData as String] as? Data == keyData)
-        #expect(addQuery[kSecAttrAccessControl as String] != nil)
+        #expect(addQuery[kSecAttrAccessControl as String] == nil)
+        #expect(addQuery[kSecAttrAccessible as String] as? String == kSecAttrAccessibleWhenUnlockedThisDeviceOnly as String)
 
         #expect(loadQuery[kSecReturnData as String] as? Bool == true)
         #expect(loadQuery[kSecMatchLimit as String] as? String == kSecMatchLimitOne as String)

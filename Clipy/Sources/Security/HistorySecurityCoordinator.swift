@@ -79,7 +79,14 @@ struct HistorySecurityCoordinator {
         HistorySecurityBootstrap.startupState = .transitioning(.enablingCleanup)
         try checkpoint(.enablingModePersisted)
 
-        try keyStore.addKey(keyID, keyData)
+        do {
+            try keyStore.addKey(keyID, keyData)
+        } catch {
+            try? keyStore.deleteKey(keyID)
+            try? persistPlaintextMetadata()
+            HistorySecurityBootstrap.startupState = .plaintext
+            throw error
+        }
         try checkpoint(.enableKeyCreated)
 
         try deleteHistoryStorage()
@@ -154,6 +161,14 @@ struct HistorySecurityCoordinator {
             guard let keyID = metadata.keyUUID() else {
                 try deleteHistoryStorage()
                 try cleanupStorage()
+                try persistPlaintextMetadata()
+                let state = HistoryLockState.plaintext
+                HistorySecurityBootstrap.startupState = state
+                return state
+            }
+            do {
+                _ = try keyStore.loadKey(keyID, false)
+            } catch EncryptionKeyStoreError.notFound {
                 try persistPlaintextMetadata()
                 let state = HistoryLockState.plaintext
                 HistorySecurityBootstrap.startupState = state
