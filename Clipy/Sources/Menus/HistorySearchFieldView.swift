@@ -11,6 +11,7 @@
 //
 
 import AppKit
+import Carbon.HIToolbox
 
 /// Delegate for user interaction inside the history search field.
 ///
@@ -43,6 +44,8 @@ final class HistorySearchFieldView: NSView, NSSearchFieldDelegate {
 
     let searchField = NSSearchField()
     weak var delegate: HistorySearchFieldViewDelegate?
+    private let currentKeyboardInputSourceIdentifier: () -> NSTextInputSourceIdentifier?
+    private var keyboardSelectionObserver: NSObjectProtocol?
 
     /// Whether the field editor currently holds uncommitted marked text (an
     /// in-progress IME composition). Used to avoid announcing intermediate
@@ -61,14 +64,25 @@ final class HistorySearchFieldView: NSView, NSSearchFieldDelegate {
     }
 
     // MARK: - Initialize
-    init() {
+    init(
+        currentKeyboardInputSourceIdentifier: @escaping () -> NSTextInputSourceIdentifier? =
+            HistorySearchFieldView.currentKeyboardInputSourceIdentifier
+    ) {
+        self.currentKeyboardInputSourceIdentifier = currentKeyboardInputSourceIdentifier
         super.init(frame: NSRect(x: 0, y: 0, width: Self.preferredWidth, height: Self.preferredHeight))
         setupSearchField()
+        observeKeyboardSelectionChanges()
     }
 
     @available(*, unavailable)
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+
+    deinit {
+        if let keyboardSelectionObserver {
+            NotificationCenter.default.removeObserver(keyboardSelectionObserver)
+        }
     }
 
     private func setupSearchField() {
@@ -112,6 +126,20 @@ final class HistorySearchFieldView: NSView, NSSearchFieldDelegate {
         searchField.abortEditing()
     }
 
+    @discardableResult
+    func refreshInputContextForCurrentKeyboardSource() -> Bool {
+        guard let textView = searchField.currentEditor() as? NSTextView,
+              let inputContext = textView.inputContext else {
+            return false
+        }
+
+        if let inputSourceIdentifier = currentKeyboardInputSourceIdentifier() {
+            inputContext.selectedKeyboardInputSource = inputSourceIdentifier
+        }
+        inputContext.invalidateCharacterCoordinates()
+        return true
+    }
+
     // MARK: - Actions
     @objc private func cancelButtonClicked(_ sender: Any?) {
         searchField.stringValue = ""
@@ -134,5 +162,35 @@ final class HistorySearchFieldView: NSView, NSSearchFieldDelegate {
         default:
             return false
         }
+    }
+}
+
+private extension HistorySearchFieldView {
+    func observeKeyboardSelectionChanges() {
+        keyboardSelectionObserver = NotificationCenter.default.addObserver(
+            forName: NSTextInputContext.keyboardSelectionDidChangeNotification,
+            object: nil,
+            queue: nil
+        ) { [weak self] _ in
+            guard let self else { return }
+            if Thread.isMainThread {
+                self.refreshInputContextForCurrentKeyboardSource()
+            } else {
+                DispatchQueue.main.async { [weak self] in
+                    self?.refreshInputContextForCurrentKeyboardSource()
+                }
+            }
+        }
+    }
+
+    static func currentKeyboardInputSourceIdentifier() -> NSTextInputSourceIdentifier? {
+        guard let source = TISCopyCurrentKeyboardInputSource()?.takeRetainedValue(),
+              let rawIdentifier = TISGetInputSourceProperty(source, kTISPropertyInputSourceID) else {
+            return nil
+        }
+
+        return Unmanaged<CFString>
+            .fromOpaque(rawIdentifier)
+            .takeUnretainedValue() as String
     }
 }
