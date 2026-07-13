@@ -20,6 +20,8 @@ final class SecurityPreferenceHostingController: NSHostingController<SecurityPre
 
     init(viewModel: SecuritySettingsViewModel) {
         super.init(rootView: SecurityPreferenceView(viewModel: viewModel))
+        preferredContentSize = NSSize(width: 560, height: 360)
+        view.frame = NSRect(origin: .zero, size: preferredContentSize)
     }
 
     @available(*, unavailable)

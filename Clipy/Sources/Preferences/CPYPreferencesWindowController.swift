@@ -34,6 +34,7 @@ final class CPYPreferencesWindowController: NSWindowController {
     @IBOutlet private weak var updatesTextField: NSTextField!
     @IBOutlet private weak var betaTextField: NSTextField!
     private weak var securityTextField: NSTextField?
+    private var securityToolbarContainer: NSView?
     // Buttons
     @IBOutlet private weak var generalButton: NSButton!
     @IBOutlet private weak var menuButton: NSButton!
@@ -149,7 +150,8 @@ private extension CPYPreferencesWindowController {
     }
 
     func addSecurityToolbarItem() {
-        let container = NSView(frame: NSRect(x: 350, y: 0, width: 70, height: 56))
+        let horizontalOffset = betaButton.superview?.frame.maxX ?? 359
+        let container = NSView(frame: NSRect(x: horizontalOffset, y: 0, width: 70, height: 56))
         container.translatesAutoresizingMaskIntoConstraints = true
         container.autoresizingMask = [.maxXMargin]
 
@@ -170,12 +172,15 @@ private extension CPYPreferencesWindowController {
         container.addSubview(label)
         container.addSubview(button)
         toolBar.addSubview(container)
+        securityToolbarContainer = container
         securityTextField = label
         securityButton = button
     }
 
     func switchView(_ index: Int) {
         let newView = viewController[index].view
+        let contentSize = preferredContentSize(for: newView, controller: viewController[index])
+        newView.frame = NSRect(origin: .zero, size: contentSize)
         // Remove current views without toolbar
         window?.contentView?.subviews.forEach { view in
             if view != toolBar {
@@ -190,5 +195,22 @@ private extension CPYPreferencesWindowController {
         newFrame.size.height += toolBar.frame.height
         window?.setFrame(newFrame, display: true)
         window?.contentView?.addSubview(newView)
+    }
+
+    func preferredContentSize(for view: NSView, controller: NSViewController) -> NSSize {
+        if view.frame.width > 0, view.frame.height > 0 {
+            return view.frame.size
+        }
+
+        let fittingSize = view.fittingSize
+        if fittingSize.width > 0, fittingSize.height > 0 {
+            return fittingSize
+        }
+
+        if controller.preferredContentSize.width > 0, controller.preferredContentSize.height > 0 {
+            return controller.preferredContentSize
+        }
+
+        return NSSize(width: 480, height: 318)
     }
 }
