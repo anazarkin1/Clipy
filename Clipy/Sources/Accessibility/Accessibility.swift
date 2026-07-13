@@ -16,7 +16,7 @@ import Cocoa
 enum Accessibility {
     // Accessibility permission is required for simulating paste (Cmd+V) via CGEvent from macOS 10.14 Mojave.
     @discardableResult
-    static func isAccessibilityEnabled(isPrompt: Bool) -> Bool {
+    static func isAccessibilityEnabled() -> Bool {
         let checkOptionPromptKey = kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String
         let opts = [checkOptionPromptKey: false] as CFDictionary
         if AXIsProcessTrustedWithOptions(opts) {
@@ -38,10 +38,6 @@ enum Accessibility {
         if result == .success || result == .noValue {
             return true
         }
-        if isPrompt {
-            let promptOpts = [checkOptionPromptKey: true] as CFDictionary
-            return AXIsProcessTrustedWithOptions(promptOpts)
-        }
         return false
     }
 
@@ -49,12 +45,11 @@ enum Accessibility {
         let alert = NSAlert()
         alert.messageText = String(localized: "Please allow Accessibility")
         alert.informativeText = String(localized: "To do this action please allow Accessibility in Security Privacy preferences located in System Preferences")
-        alert.addButton(withTitle: String(localized: "Open System Preferences"))
+        alert.addButton(withTitle: String(localized: "Open System Settings"))
         NSApp.activate(ignoringOtherApps: true)
 
         if alert.runModal() == NSApplication.ModalResponse.alertFirstButtonReturn {
-            guard !openAccessibilitySettingWindow() else { return }
-            isAccessibilityEnabled(isPrompt: true)
+            _ = openAccessibilitySettingWindow()
         }
     }
 }

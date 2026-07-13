@@ -150,8 +150,9 @@ extension AppDelegate: NSApplicationDelegate {
 
         // SDKs
         firebase.configure()
-        // Check Accessibility Permission
-        Accessibility.isAccessibilityEnabled(isPrompt: true)
+        // Accessibility is checked lazily when paste automation is used.
+        // Do not request the system prompt at launch: local ad-hoc rebuilds can
+        // look like a different app to macOS TCC even when "Clipy" is enabled.
 
         // Show Login Item
         if !AppEnvironment.current.defaults.bool(forKey: Constants.UserDefaults.loginItem) && !AppEnvironment.current.defaults.bool(forKey: Constants.UserDefaults.suppressAlertForLoginItem) {

@@ -120,7 +120,7 @@ extension PasteService {
     func paste() {
         guard AppEnvironment.current.defaults.bool(forKey: Constants.UserDefaults.inputPasteCommand) else { return }
         // Check Accessibility Permission
-        guard Accessibility.isAccessibilityEnabled(isPrompt: false) else {
+        guard Accessibility.isAccessibilityEnabled() else {
             Accessibility.showAccessibilityAuthenticationAlert()
             return
         }
