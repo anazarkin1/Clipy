@@ -251,15 +251,6 @@ private extension AppDelegate {
                 _ = self?.lockManager.lockNow()
             }
         }
-        LockManager.mandatoryApplicationLockNotifications.forEach { name in
-            NotificationCenter.default.addObserver(
-                forName: name,
-                object: nil,
-                queue: .main
-            ) { [weak self] _ in
-                _ = self?.lockManager.lockNow()
-            }
-        }
         DistributedNotificationCenter.default().addObserver(
             forName: LockManager.screenSaverDidStartNotification,
             object: nil,

@@ -61,7 +61,7 @@ struct LockManagerTests {
         #expect(LockManager.mandatoryWorkspaceLockNotifications.contains(NSWorkspace.screensDidSleepNotification))
         #expect(LockManager.mandatoryWorkspaceLockNotifications.contains(NSWorkspace.sessionDidResignActiveNotification))
         #expect(LockManager.mandatoryWorkspaceLockNotifications.contains(NSWorkspace.willSleepNotification))
-        #expect(LockManager.mandatoryApplicationLockNotifications.contains(NSApplication.didResignActiveNotification))
+        #expect(!LockManager.mandatoryWorkspaceLockNotifications.contains(NSApplication.didResignActiveNotification))
         #expect(LockManager.screenSaverDidStartNotification.rawValue == "com.apple.screensaver.didstart")
     }
 

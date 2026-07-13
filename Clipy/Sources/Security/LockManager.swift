@@ -20,9 +20,6 @@ final class LockManager {
         NSWorkspace.sessionDidResignActiveNotification,
         NSWorkspace.willSleepNotification
     ]
-    static let mandatoryApplicationLockNotifications: [Notification.Name] = [
-        NSApplication.didResignActiveNotification
-    ]
 
     private static let stateLock = NSLock()
     private static var _generation = 0
