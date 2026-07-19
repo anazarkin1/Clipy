@@ -49,8 +49,11 @@ The command must exit 0. Any marker hit blocks release.
 - [ ] Enable retry after an injected failure returns to a consistent state.
 - [ ] After enable, old history is gone and new text/image/RTF/PDF/URL captures
       round-trip exactly after unlock.
-- [ ] Screen lock, fast-user switching, screensaver start, and system sleep each
-      require a new unlock before history access.
+- [ ] Launching while encrypted history is locked prompts for Touch ID / Mac
+      password before any history is captured; Clipy never starts silently with
+      capture disabled.
+- [ ] A successful unlock persists without re-prompting until Clipy quits,
+      including across sleep, screensaver, and session switches.
 - [ ] Clipboard changes made while encrypted history is locked are not captured.
 - [ ] Unlock cancellation leaves history locked and does not repeatedly prompt.
 - [ ] Simulated missing key fails closed; clear-inaccessible-history returns to
@@ -85,11 +88,14 @@ Encrypted clipboard history at rest:
 
 - Adds app-level AES-256-GCM encryption for clipboard history payloads,
   thumbnails, titles, and OCR text.
-- Protects the history key with macOS Keychain user-presence authentication.
+- Requires Touch ID, Apple Watch, or Mac password authentication to unlock
+  encrypted history; Clipy prompts at launch and never runs silently with
+  history capture disabled.
 - Uses destructive transitions: enabling clears plaintext history; disabling
   clears encrypted history; snippets are unaffected.
-- Locks on session/screen/sleep/screensaver events and supports explicit lock
-  and unlock from the Security preferences pane.
+- Keeps history unlocked until Clipy quits or the Mac reboots; supports
+  explicit Lock Now and authenticated unlock from the Security preferences
+  pane.
 
 Security limits/non-goals:
 

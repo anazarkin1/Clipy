@@ -11,15 +11,11 @@
 //
 
 import AppKit
+import LocalAuthentication
 
 final class LockManager {
     static let stateDidChangeNotification = Notification.Name("com.clipy.history.lock-state-did-change")
-    static let screenSaverDidStartNotification = Notification.Name("com.apple.screensaver.didstart")
-    static let mandatoryWorkspaceLockNotifications: [Notification.Name] = [
-        NSWorkspace.screensDidSleepNotification,
-        NSWorkspace.sessionDidResignActiveNotification,
-        NSWorkspace.willSleepNotification
-    ]
+    static let unlockReason = String(localized: "Unlock your clipboard history.")
 
     private static let stateLock = NSLock()
     private static var _generation = 0
@@ -77,14 +73,34 @@ final class LockManager {
         return newState
     }
 
+    /// Unlocks encrypted history only after the user authenticates with
+    /// Touch ID, Apple Watch, or their Mac password. A successful unlock lasts
+    /// until Clipy quits; there is no silent unlock path, so Clipy never runs
+    /// with history capture disabled without the user being asked.
+    ///
+    /// Non-locked states return immediately without prompting. A canceled or
+    /// failed authentication leaves the state locked and history capture
+    /// blocked; the user can retry from the menu or Security preferences.
     @discardableResult
-    func unlockIfLocked(keyStore: EncryptionKeyStore = .live) -> HistoryLockState {
+    func authenticatedUnlock(
+        keyStore: EncryptionKeyStore = .live,
+        authenticate: (String) async -> Bool = LockManager.evaluateOwnerAuthentication
+    ) async -> HistoryLockState {
         Self.stateLock.lock()
         let state = HistorySecurityBootstrap.startupState
         Self.stateLock.unlock()
 
         guard case .locked = state else { return state }
+        guard await authenticate(Self.unlockReason) else { return state }
         return unlock(keyStore: keyStore)
+    }
+
+    static func evaluateOwnerAuthentication(reason: String) async -> Bool {
+        await withCheckedContinuation { continuation in
+            LAContext().evaluatePolicy(.deviceOwnerAuthentication, localizedReason: reason) { success, _ in
+                continuation.resume(returning: success)
+            }
+        }
     }
 
     func recordUserActivity(at now: TimeInterval) {

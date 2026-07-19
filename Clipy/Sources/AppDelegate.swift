@@ -85,7 +85,7 @@ class AppDelegate: NSObject, NSMenuItemValidation {
     }
 
     @objc func unlockHistory() {
-        unlockHistoryIfNeeded()
+        Task { @MainActor in await lockManager.authenticatedUnlock() }
     }
 
     @objc func clearInaccessibleHistory() {
@@ -136,10 +136,6 @@ class AppDelegate: NSObject, NSMenuItemValidation {
         }
     }
 
-    @discardableResult
-    private func unlockHistoryIfNeeded() -> HistoryLockState {
-        lockManager.unlockIfLocked()
-    }
 }
 
 // MARK: - NSApplication Delegate
@@ -158,7 +154,10 @@ extension AppDelegate: NSApplicationDelegate {
         // Accessibility is checked lazily when paste automation is used.
         // Do not request the system prompt at launch: local ad-hoc rebuilds can
         // look like a different app to macOS TCC even when "Clipy" is enabled.
-        unlockHistoryIfNeeded()
+
+        // Ask the user to unlock encrypted history at launch. Without this
+        // prompt Clipy would silently run with clipboard capture disabled.
+        Task { await lockManager.authenticatedUnlock() }
 
         // Show Login Item
         if !AppEnvironment.current.defaults.bool(forKey: Constants.UserDefaults.loginItem) && !AppEnvironment.current.defaults.bool(forKey: Constants.UserDefaults.suppressAlertForLoginItem) {
@@ -198,15 +197,6 @@ extension AppDelegate: NSApplicationDelegate {
             .disposed(by: disposeBag)
     }
 
-    func applicationDidBecomeActive(_ notification: Notification) {
-        unlockHistoryIfNeeded()
-    }
-
-    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        unlockHistoryIfNeeded()
-        return true
-    }
-
 }
 
 // MARK: - Bind
@@ -241,23 +231,6 @@ private extension AppDelegate {
                 self?.screenshotObserver.start()
             })
             .disposed(by: disposeBag)
-        let workspaceNotificationCenter = NSWorkspace.shared.notificationCenter
-        LockManager.mandatoryWorkspaceLockNotifications.forEach { name in
-            workspaceNotificationCenter.addObserver(
-                forName: name,
-                object: nil,
-                queue: .main
-            ) { [weak self] _ in
-                _ = self?.lockManager.lockNow()
-            }
-        }
-        DistributedNotificationCenter.default().addObserver(
-            forName: LockManager.screenSaverDidStartNotification,
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            _ = self?.lockManager.lockNow()
-        }
     }
 }
 

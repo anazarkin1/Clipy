@@ -119,6 +119,27 @@ struct SecuritySettingsViewModelTests {
         #expect(available.authenticationDescription.localizedCaseInsensitiveContains("password"))
         #expect(!unavailable.authenticationDescription.localizedCaseInsensitiveContains("Touch ID only"))
     }
+
+    @Test
+    func unlockRunsAsyncAuthenticatedActionAndUpdatesState() async {
+        let recorder = ActionRecorder()
+        let keyID = UUID()
+        let unlockedState = HistoryLockState.unlocked(keyID: keyID, keyData: Data(repeating: 1, count: 32))
+        let viewModel = SecuritySettingsViewModel(
+            state: .locked(keyID: keyID),
+            actions: actions(recording: recorder, enabledState: unlockedState)
+        )
+
+        viewModel.unlock()
+        // The unlock action runs on a spawned task; wait for it to finish.
+        for _ in 0..<1_000 {
+            if recorder.calls == ["unlock"], viewModel.state == unlockedState { break }
+            try? await Task.sleep(for: .milliseconds(1))
+        }
+
+        #expect(recorder.calls == ["unlock"])
+        #expect(viewModel.state == unlockedState)
+    }
 }
 
 private final class ActionRecorder {

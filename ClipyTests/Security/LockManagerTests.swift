@@ -57,15 +57,6 @@ struct LockManagerTests {
     }
 
     @Test
-    func mandatoryLifecycleNotificationsAreRegisteredForLocking() {
-        #expect(LockManager.mandatoryWorkspaceLockNotifications.contains(NSWorkspace.screensDidSleepNotification))
-        #expect(LockManager.mandatoryWorkspaceLockNotifications.contains(NSWorkspace.sessionDidResignActiveNotification))
-        #expect(LockManager.mandatoryWorkspaceLockNotifications.contains(NSWorkspace.willSleepNotification))
-        #expect(!LockManager.mandatoryWorkspaceLockNotifications.contains(NSApplication.didResignActiveNotification))
-        #expect(LockManager.screenSaverDidStartNotification.rawValue == "com.apple.screensaver.didstart")
-    }
-
-    @Test
     func lockedCaptureStoresNothingAndResumesAfterUnlock() throws {
         defer { HistorySecurityBootstrap.startupState = .plaintext }
         let keyStore = TestLockKeyStore()
@@ -112,39 +103,76 @@ struct LockManagerTests {
     }
 
     @Test
-    func unlockIfLockedUnlocksEncryptedHistory() throws {
+    func authenticatedUnlockPromptsAndUnlocksEncryptedHistory() async throws {
         defer { HistorySecurityBootstrap.startupState = .plaintext }
         let keyStore = TestLockKeyStore()
         let coordinator = HistorySecurityCoordinator(keyStore: keyStore.store)
         let lockedState = try coordinator.enableEncryption()
         let keyID = try #require(lockedState.lockedKeyID)
+        var promptedReasons = [String]()
 
-        let state = LockManager().unlockIfLocked(keyStore: keyStore.store)
+        let state = await LockManager().authenticatedUnlock(
+            keyStore: keyStore.store,
+            authenticate: { reason in
+                promptedReasons.append(reason)
+                return true
+            }
+        )
 
         #expect(state.unlockedKeyID == keyID)
         #expect(HistorySecurityBootstrap.startupState.unlockedKeyID == keyID)
+        #expect(promptedReasons == [LockManager.unlockReason])
     }
 
     @Test
-    func unlockIfLockedSkipsNonLockedStates() {
+    func authenticatedUnlockCancellationLeavesHistoryLockedWithoutLoadingKey() async throws {
         defer { HistorySecurityBootstrap.startupState = .plaintext }
+        let keyStore = TestLockKeyStore()
+        let coordinator = HistorySecurityCoordinator(keyStore: keyStore.store)
+        let lockedState = try coordinator.enableEncryption()
         var didLoadKey = false
+        let recordingStore = EncryptionKeyStore(
+            addKey: keyStore.store.addKey,
+            loadKey: { keyID, allowsInteraction in
+                didLoadKey = true
+                return try keyStore.store.loadKey(keyID, allowsInteraction)
+            },
+            deleteKey: keyStore.store.deleteKey,
+            inventoryKeyIDs: keyStore.store.inventoryKeyIDs
+        )
+
+        let state = await LockManager().authenticatedUnlock(keyStore: recordingStore) { _ in false }
+
+        #expect(state == lockedState)
+        #expect(HistorySecurityBootstrap.startupState == lockedState)
+        #expect(!didLoadKey)
+    }
+
+    @Test
+    func authenticatedUnlockSkipsPromptWhenNotLocked() async {
+        defer { HistorySecurityBootstrap.startupState = .plaintext }
         HistorySecurityBootstrap.startupState = .plaintext
+        var didPrompt = false
         let keyStore = EncryptionKeyStore(
             addKey: { _, _ in },
             loadKey: { _, _ in
-                didLoadKey = true
                 throw EncryptionKeyStoreError.unexpected(errSecInternalError)
             },
             deleteKey: { _ in },
             inventoryKeyIDs: { [] }
         )
 
-        let state = LockManager().unlockIfLocked(keyStore: keyStore)
+        let state = await LockManager().authenticatedUnlock(
+            keyStore: keyStore,
+            authenticate: { _ in
+                didPrompt = true
+                return true
+            }
+        )
 
         #expect(state == .plaintext)
         #expect(HistorySecurityBootstrap.startupState == .plaintext)
-        #expect(!didLoadKey)
+        #expect(!didPrompt)
     }
 }
 

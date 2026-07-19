@@ -26,14 +26,14 @@ final class SecuritySettingsViewModel: ObservableObject {
         var disableEncryption: () throws -> HistoryLockState
         var clearInaccessibleHistory: () throws -> HistoryLockState
         var lockNow: () -> HistoryLockState
-        var unlock: () -> HistoryLockState
+        var unlock: () async -> HistoryLockState
 
         static let live = Actions(
             enableEncryption: { try HistorySecurityCoordinator().enableEncryption() },
             disableEncryption: { try HistorySecurityCoordinator().disableEncryption() },
             clearInaccessibleHistory: { try HistorySecurityCoordinator().clearInaccessibleHistory() },
             lockNow: { LockManager().lockNow() },
-            unlock: { LockManager().unlock() }
+            unlock: { await LockManager().authenticatedUnlock() }
         )
     }
 
@@ -146,7 +146,7 @@ final class SecuritySettingsViewModel: ObservableObject {
 
     func unlock() {
         guard canUnlock else { return }
-        updateState(actions.unlock())
+        Task { updateState(await actions.unlock()) }
     }
 
     func clearInaccessibleHistory() {

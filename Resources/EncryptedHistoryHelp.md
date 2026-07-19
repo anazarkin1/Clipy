@@ -7,9 +7,14 @@ When you enable encrypted history:
 - Clipy permanently clears existing clipboard history before encryption starts.
 - Snippets are unaffected.
 - New history is encrypted in Clipy's local history database.
-- The history key is protected by macOS Keychain user authentication.
-- Clipy locks encrypted history when your Mac sleeps, the session resigns, the
-  screens sleep, the screensaver starts, or you choose Lock Now.
+- Unlocking requires Touch ID, Apple Watch, or your Mac password. Clipy asks
+  when it launches while encrypted history is locked — it never starts silently
+  with history capture disabled.
+- Once unlocked, encrypted history stays unlocked until Clipy quits (or your
+  Mac restarts). Clipy locks again only when you choose Lock Now; unlocking
+  after that requires authentication again.
+- If you cancel the unlock prompt, clipboard history stays locked and is not
+  captured; the menu shows Unlock History so you can retry.
 
 Important limits:
 

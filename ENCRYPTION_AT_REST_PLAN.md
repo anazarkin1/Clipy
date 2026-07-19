@@ -14,10 +14,12 @@ Concretely:
 
 1. Encrypt sensitive clipboard-history columns with application-level
    AES-256-GCM using CryptoKit. Do not add a third-party cryptography dependency.
-2. Protect the master key with macOS Keychain user-presence authentication.
-   Unlock once per application session and keep the unlocked key only in memory.
-3. Always re-lock on screen/session lock and system sleep. Optionally re-lock
-   after a configurable idle timeout.
+2. Require Touch ID, Apple Watch, or Mac password authentication to unlock
+   encrypted history. Unlock once per application session and keep the unlocked
+   key only in memory.
+3. Once unlocked, history stays unlocked until Clipy quits (or the Mac reboots,
+   which restarts the app and prompts again). History locks only via the
+   explicit Lock Now action.
 4. Treat changing security mode as destructive:
    - Enabling encryption clears all existing plaintext clipboard history.
    - Disabling encryption clears all existing encrypted clipboard history.
@@ -191,6 +193,15 @@ fingerprint enrollment changes.
 Use an LAContext through kSecUseAuthenticationContext and a localized reason
 such as "Unlock your clipboard history." The UI must call this authentication,
 not promise Touch ID specifically.
+
+**Implementation update (2026-07-17):** The shipped key store drops
+`kSecUseDataProtectionKeychain` and the `SecAccessControl` user-presence ACL
+because the Data Protection keychain requires keychain-access-groups
+entitlements that ad-hoc local builds cannot satisfy. User-presence
+authentication is instead enforced at the application layer:
+`LockManager.authenticatedUnlock` gates every history unlock on
+`LAContext.evaluatePolicy(.deviceOwnerAuthentication)` before the key is read
+from the Keychain. There is no silent unlock path.
 
 Represent Keychain outcomes explicitly:
 
@@ -436,6 +447,19 @@ simpler without affecting snippets.
 ## 10. Re-lock behavior
 
 Create Clipy/Sources/Security/LockManager.swift.
+
+**Implementation update (2026-07-17):** The automatic re-lock triggers below
+were removed after review feedback. The shipped behavior is:
+
+- Launching while encrypted history is locked prompts for Touch ID / Apple
+  Watch / Mac password before any history is captured; canceling keeps history
+  locked (capture stays blocked, the menu shows Unlock History).
+- A successful unlock lasts until Clipy quits or the Mac reboots — sleep,
+  screensaver, and session switches no longer re-lock.
+- History re-locks only via the explicit Lock Now action; unlocking again
+  requires authentication.
+
+Original (superseded) design:
 
 Mandatory lock triggers whenever encrypted history is enabled:
 
@@ -1182,8 +1206,9 @@ signed-app release checks remain pending.
 - [ ] Raw inspection: after encrypted capture and a clean application quit,
       database, WAL/journal files, caches, and active legacy paths contain none of
       the unique plaintext markers used by the test.
-- [ ] Manual app: screen lock, fast-user switching, and sleep each require a new
-      unlock before history access and do not capture while locked.
+- [ ] Manual app: launching while encrypted history is locked prompts for Touch
+      ID/password before capture starts; canceling keeps history locked and
+      capture blocked, and a successful unlock persists until Clipy quits.
 - [ ] Manual app: simulated missing key fails closed and clear-inaccessible-
       history returns to a usable empty state.
 - [ ] Manual app: disabling deletes encrypted history and resumes empty plaintext
