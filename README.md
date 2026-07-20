@@ -19,6 +19,19 @@ __Distribution Site__ : <https://clipy-app.com>
 
 <img src="http://clipy-app.com/img/screenshot1.png" width="400">
 
+### Changes in this fork
+This fork adds the following features on top of the original [Clipy](https://github.com/Clipy/Clipy):
+
+* __Encrypted clipboard history (encryption at rest)__
+    * History is stored encrypted (AES-GCM); the key lives in the macOS Keychain and does not leave this Mac.
+    * At launch, Clipy asks for Touch ID, Apple Watch, or your Mac password to unlock history — it never starts silently with history capture disabled.
+    * Once unlocked, history stays unlocked until Clipy quits or the Mac restarts; a Lock Now menu item locks it again on demand.
+    * A Security preferences pane manages encryption. Enabling or disabling encryption permanently clears the existing history (snippets are unaffected), and history whose key was lost can be cleared to return to a usable state.
+    * See [Resources/EncryptedHistoryHelp.md](./Resources/EncryptedHistoryHelp.md) for details and limitations.
+* __History search__ — type directly in the history menu to filter results in place; localized and VoiceOver-accessible.
+* __Clear History reclaims disk space__ — the history database is vacuumed after clearing.
+* __No Accessibility prompt at launch__ — the permission check happens lazily when you paste, so ad-hoc local rebuilds don't trigger repeated system prompts.
+
 ### Development Environment
 * macOS 26 Tahoe
 * Xcode 26.5
