@@ -33,6 +33,7 @@ protocol PasteboardHistoryRepositoryProtocol {
     func updateOCRText(id: PasteboardHistory.ID, ocrText: String)
     func deleteHistory(id: PasteboardHistory.ID)
     func deleteAll()
+    func compactStorage()
     func deleteOverflowingHistories(maxHistorySize: Int)
 }
 
@@ -256,6 +257,27 @@ final class PasteboardHistoryRepository: PasteboardHistoryRepositoryProtocol {
                 try PasteboardHistory.delete().execute(database)
             }
         }
+    }
+
+    /// Rebuilds the database file to reclaim pages freed by a full clear.
+    ///
+    /// Runs synchronously on the caller's thread; intended to be called
+    /// immediately after `deleteAll()`, when almost no live data remains and the
+    /// rebuild takes milliseconds. Not used by the routine size-cap trim, where a
+    /// full-file rebuild of still-live data would be expensive.
+    func compactStorage() {
+        withErrorReporting {
+            try database.writeWithoutTransaction { database in
+                try Self.performCompaction(database)
+            }
+        }
+    }
+
+    /// Flushes the WAL and rebuilds the database file. `VACUUM` cannot run inside
+    /// a transaction, so this must be invoked via `writeWithoutTransaction`.
+    static func performCompaction(_ db: Database) throws {
+        try db.execute(sql: "PRAGMA wal_checkpoint(TRUNCATE)")
+        try db.execute(sql: "VACUUM")
     }
 
     func deleteOverflowingHistories(maxHistorySize: Int) {

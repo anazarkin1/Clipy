@@ -58,6 +58,9 @@ final class ClipService {
 
     func clearAll() {
         pasteboardHistoryRepository.deleteAll()
+        // Reclaim the pages the clear just freed. Synchronous and cheap here:
+        // VACUUM cost scales with surviving data, which is ~zero after a full clear.
+        pasteboardHistoryRepository.compactStorage()
         // Clear legacy Realm-backed history caches used through v1.2.1.
         PINCache.shared.removeAllObjects()
         try? FileManager.default.removeItem(atPath: CPYUtilities.applicationSupportFolder())

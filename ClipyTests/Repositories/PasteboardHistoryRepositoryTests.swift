@@ -12,6 +12,7 @@
 
 import AppKit
 import Combine
+import Dependencies
 import DependenciesTestSupport
 import SQLiteData
 import Testing
@@ -298,6 +299,44 @@ struct PasteboardHistoryRepositoryTests {
         repository.deleteAll()
 
         #expect(!repository.hasHistories())
+    }
+
+    @Test
+    func compactStorageReclaimsFreedPages() throws {
+        @Dependency(\.defaultDatabase) var database
+
+        func pragma(_ sql: String) throws -> Int {
+            try database.read { db in try Int.fetchOne(db, sql: sql) ?? 0 }
+        }
+
+        // Grow the file well past a single page with several large-asset rows.
+        let base = Data(repeating: 0xAB, count: 256 * 1024)
+        for index in 0..<12 {
+            var payload = base
+            payload.replaceSubrange(0..<8, with: withUnsafeBytes(of: UInt64(index)) { Data($0) })
+            let content = try #require(
+                PasteboardContent(assets: [PasteboardContent.Asset(type: .fileURL, data: payload)])
+            )
+            repository.save(
+                id: PasteboardHistory.ID(rawValue: content.hash),
+                content: content,
+                updateAt: index + 1
+            )
+        }
+
+        let pageCountBeforeDelete = try pragma("PRAGMA page_count")
+        #expect(pageCountBeforeDelete > 0)
+
+        repository.deleteAll()
+        #expect(!repository.hasHistories())
+        // Deleting frees pages onto the freelist but does not shrink the file.
+        #expect(try pragma("PRAGMA freelist_count") > 0)
+
+        repository.compactStorage()
+
+        // VACUUM reclaims the freelist and shrinks the file.
+        #expect(try pragma("PRAGMA freelist_count") == 0)
+        #expect(try pragma("PRAGMA page_count") < pageCountBeforeDelete)
     }
 
     @Test
